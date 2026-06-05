@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
     "date-fns": "^4.4.0",
     "react-big-calendar": "^1.20.0",
     "react-router-dom": "^7.16.0"

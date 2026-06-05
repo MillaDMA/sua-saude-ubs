@@ -8,18 +8,121 @@ import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css'; 
 import { useState, useRef, useEffect } from 'react';
 
-// Páginas estáticas do sistema
-const PaginaPrincipal = () => (
-  <div className="mt-4">
-    <h2>Painel Principal</h2>
-    <p>Aqui fica o conteúdo da sua página principal do "Sua Saúde".</p>
-  </div>
-);
+
+const PaginaPrincipal = () => {
+  const [urlMaps, setUrlMaps] = useState('');
+  const [carregando, setCarregando] = useState(true);
+  const [erroLocalizacao, setErroLocalizacao] = useState(false);
+
+  // Busca a localização em background assim que o componente é renderizado
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setCarregando(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        // Monta a URL certeira para o Google Maps usar as coordenadas como ponto de partida
+        setUrlMaps(`https://www.google.com/maps/search/?api=1&query=Posto+de+Saude+UBS&query_place_id=${latitude},${longitude}`);
+        setCarregando(false);
+      },
+      (error) => {
+        console.error("Erro de geolocalização:", error);
+        setErroLocalizacao(true);
+        setCarregando(false);
+      }
+    );
+  }, []);
+
+  return (
+    <div className="mt-4 home">
+      <h2>Bem-vindo, paciente!!</h2>
+      
+      {/* Carrossel com efeito fade e classes corrigidas */}
+      <div id="carouselExampleCaptions" className="carousel slide carousel-fade mod-carousel" data-bs-ride="carousel">
+        <div className="carousel-indicators">
+          <button type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide-to="0" className="active" aria-current="true" aria-label="Slide 1"></button>
+          <button type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide-to="1" aria-label="Slide 2"></button>
+          <button type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide-to="2" aria-label="Slide 3"></button>
+        </div>
+        
+        <div className="carousel-inner">
+          <div className="carousel-item active img-carousel">
+            <img src="img/feriadojunho.jpg" className="d-block w-100" alt="Aviso de Feriado" />
+            <div className="carousel-caption d-none d-md-block message-carousel">
+              <h5>Feriado</h5>
+              <p>Não estaremos abertos nesse feriado dia 04</p>
+            </div>
+          </div>
+          
+          <div className="carousel-item img-carousel">
+            <img src="img/vacina.png" className="d-block w-100" alt="Campanha de Vacinação" />
+            <div className="carousel-caption d-none d-md-block message-carousel">
+              <h5>Saiba mais clicando aqui</h5>
+              <p>Todos por uma cidade mais segura</p>
+            </div>
+          </div>
+          
+          <div className="carousel-item img-carousel">
+            <img src="img/lavamaos.jpg" className="d-block w-100" alt="Dica de lavar as mãos" />
+            <div className="carousel-caption d-none d-md-block message-carousel">
+              <h5>Dica de saúde</h5>
+              <p>saiba mais clicando na imagem</p>
+            </div>
+          </div>
+        </div>
+        
+        <button className="carousel-control-prev" type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide="prev">
+          <span className="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span className="visually-hidden">Previous</span>
+        </button>
+        <button className="carousel-control-next" type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide="next">
+          <span className="carousel-control-next-icon" aria-hidden="true"></span>
+          <span className="visually-hidden">Next</span>
+        </button>
+      </div>
+      
+      {/* Seção de Busca Dinâmica sem bloqueio de Pop-up */}
+      <div className="d-grid gap-2 button-search">
+        <p>Precisa de ajuda?</p>
+        
+        {carregando ? (
+          <button className="btn btn-primary" type="button" disabled>
+            Obtendo localização...
+          </button>
+        ) : erroLocalizacao ? (
+          /* Fallback: se der erro de permissão, o link faz uma busca geral baseada no IP */
+          <a 
+            href="https://www.google.com/maps/search/?api=1&query=Posto+de+Saude+UBS" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn btn-primary d-flex align-items-center justify-content-center"
+          >
+            Postinho mais próximo
+          </a>
+        ) : (
+          /* Sucesso: Link direto para a rota que o navegador NUNCA bloqueia */
+          <a 
+            href={urlMaps} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn btn-primary d-flex align-items-center justify-content-center"
+          >
+            Postinho mais próximo
+          </a>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Sobre = () => (
   <div className="mt-4">
-    <h2>Sobre o Aplicativo</h2>
-    <p>Informações sobre o projeto e utilidades do app.</p>
+    <h2>Dúvidas</h2>
+    
+    <p>Informações sobre o projeto, utilidades do app e documentos necessários</p>
   </div>
 );
 
@@ -200,7 +303,7 @@ const FalarUBS = () => (
     <p>Canais de atendimento e contato direto com a sua unidade.</p>
     <p>Horário de 8 da manhã até 5 da tarde de segunda a sexta</p>
     <p>Telefone: 2233-4466</p>
-    <p>Se preferir nos evie uma mensagem</p>
+    <p>Se preferir nos envie uma mensagem</p>
     <a href='https://wa.me/5524988299581'><p>24988775544</p></a>
   </div>
 );
@@ -215,7 +318,7 @@ const Historico = () => (
 const Vacinas = () => (
   <div className="mt-4">
     <h2>Campanhas de Vacinação</h2>
-    <p>Confira o calendário de vacinas e campanhas atuais.</p>
+    <p>Confira o calendário de vacinas e campanhas atuais. De acordo com o SUS</p>
   </div>
 );
 
@@ -231,7 +334,7 @@ function App() {
           <Link className="nav-link menu-text" to="/">Página principal</Link>
         </li>
         <li className="nav-item">
-          <Link className="nav-link menu-text" to="/sobre">Sobre o aplicativo</Link>
+          <Link className="nav-link menu-text" to="/sobre">Dúvidas</Link>
         </li>
         <li className="nav-item">
           <Link className="nav-link menu-text" to="/agendamentos">Agendamentos</Link>
