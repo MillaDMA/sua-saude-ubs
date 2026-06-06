@@ -1,4 +1,8 @@
 
+p{
+    margin: 0.5rem;
+}
+
 .nav-style{
     background:blue;
 }
@@ -11,6 +15,14 @@
     max-width: 1.5rem;
 }
 
+.buttton-acordeon-tittle{
+    display: flex;
+    flex-direction: column; 
+    align-items: center;     /* Centraliza o conteúdo horizontalmente */
+    justify-content: center; /* Centraliza verticalmente */
+    width: 100%; 
+
+}
 
 .home {
     display: flex;
