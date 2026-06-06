@@ -1,4 +1,8 @@
 
+p{
+    margin: 0.5rem;
+}
+
 .nav-style{
     background:blue;
 }
@@ -9,4 +13,41 @@
 
 .icon-profile{
     max-width: 1.5rem;
+}
+
+.buttton-acordeon-tittle{
+    display: flex;
+    flex-direction: column; 
+    align-items: center;     /* Centraliza o conteúdo horizontalmente */
+    justify-content: center; /* Centraliza verticalmente */
+    width: 100%; 
+
+}
+
+.home {
+    display: flex;
+    flex-direction: column; /* Empilha o H2 e o Carrossel verticalmente */
+    align-items: center;     /* Centraliza o conteúdo horizontalmente */
+    justify-content: center; /* Centraliza verticalmente */
+    width: 100%;             /* Garante que a div ocupe a largura total */
+}
+
+.mod-carousel {
+    width: 100%;
+    max-width: 800px;
+}
+
+.img-carousel img {
+  height: 400px; 
+  object-fit: cover;
+  opacity: 0.5;
+}
+
+.message-carousel{
+
+    color: black;
+}
+
+.button-search{
+    margin: 2rem;
 }
