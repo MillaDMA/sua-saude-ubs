@@ -181,16 +181,31 @@ const Sobre = () => {
 };
 
 const Agendamentos = () => (
-  <div className="mt-4">
+  <div className="mt-4 text-center">
     <h2>Meus Agendamentos</h2>
     <p>Consulte suas consultas marcadas ou agende a próxima consulta</p>
-    <Link to="/consultas-marcadas" style={{ textDecoration: 'none' }}>
-  <button type="button" className="btn btn-primary me-2">Consultas Marcadas</button>
-</Link>
-    <button type="button" className="btn btn-primary me-2">Exames Marcados</button>
-    <Link to="/agendarconsultas" style={{ textDecoration: 'none' }}> 
-      <button type="button" className="btn btn-primary">Agendar consulta</button>
-    </Link>
+    
+    {/* 1. d-flex: define o modo flex
+      2. flex-column: empilha no mobile (padrão)
+      3. flex-md-row: muda para linha apenas em telas médias ou maiores (desktop)
+      4. align-items-center: centraliza verticalmente no modo coluna
+      5. gap-3: espaçamento entre botões
+    */}
+    <div className="d-flex flex-column flex-md-row align-items-center justify-content-center gap-3">
+      
+      <Link to="/consultas-marcadas" style={{ textDecoration: 'none' }}>
+        <button type="button" className="btn btn-primary">Consultas Marcadas</button>
+      </Link>
+      
+      <Link to="/exames-marcados" style={{ textDecoration: 'none' }}>
+        <button type="button" className="btn btn-primary">Exames Marcados</button>
+      </Link>
+      
+      <Link to="/agendarconsultas" style={{ textDecoration: 'none' }}> 
+        <button type="button" className="btn btn-primary">Agendar consulta</button>
+      </Link>
+      
+    </div>
   </div>
 );
 
@@ -419,25 +434,8 @@ const Agendarconsultas = () => {
     </div>
   );
 };
-const ConsultaAgendada = () => {
-  const location = useLocation();
-  const diaExibicao = location.state?.diaExibicao || 'X';
-  const horario = location.state?.horario || 'Y';
 
-  return (
-    <div className="mt-5 p-5 bg-white border rounded shadow-sm text-center">
-      <h2 className="text-success mb-3">✔️ Consulta Agendada!</h2>
-      <p className="fs-4">
-        Sua consulta foi agendada com sucesso para o dia <strong className="text-primary">{diaExibicao}</strong> às <strong className="text-primary">{horario}</strong>.
-      </p>
-      <p className="text-muted">Os dados foram confirmados e salvos no banco de dados.</p>
-      
-      <Link to="/agendamentos" className="btn btn-secondary mt-3">
-        Voltar para Agendamentos
-      </Link>
-    </div>
-  );
-};
+
 
 const ConsultasMarcadas = () => {
   const [minhasConsultas, setMinhasConsultas] = useState([]);
@@ -503,6 +501,45 @@ const ConsultasMarcadas = () => {
     </div>
   );
 };
+
+const ConsultaAgendada = () => {
+  const location = useLocation();
+  const diaExibicao = location.state?.diaExibicao || 'X';
+  const horario = location.state?.horario || 'Y';
+
+  // 1. A função fica aqui fora do return
+  const confirmarAgendamento = () => {
+    const mensagem = `Olá! Sua consulta está confirmada!\nData: ${diaExibicao}\nHorário: ${horario}\nDocumentos necessários: RG e Cartão do SUS.`;
+    
+    // Substitua pelo número real ou uma variável vinda do state
+    const numero = "5524988299581"; 
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+    
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div className="mt-5 p-5 bg-white border rounded shadow-sm text-center">
+      <h2 className="text-success mb-3">✔️ Consulta Agendada!</h2>
+      <p className="fs-4">
+        Sua consulta foi agendada com sucesso para o dia <strong className="text-primary">{diaExibicao}</strong> às <strong className="text-primary">{horario}</strong>.
+      </p>
+      <p className="text-muted">Os dados foram confirmados e salvos no banco de dados.</p>
+
+      {/* 2. Botão que chama a função */}
+      <div className="d-grid gap-2 mt-4">
+        <button className="btn btn-success" onClick={confirmarAgendamento}>
+          Enviar confirmação via WhatsApp
+        </button>
+        
+        <Link to="/agendamentos" className="btn btn-secondary mt-2">
+          Voltar para Agendamentos
+        </Link>
+      </div>
+    </div>
+  );
+};
+
 const FalarUBS = () => (
   <div className="mt-4">
     <h2>Falar com a UBS</h2>
@@ -552,17 +589,39 @@ const Vacinas = () => (
 function App() {
   return (
     <Router>
-      <ul className="nav nav-tabs nav-style nav-justified">
+      <nav className="navbar navbar-expand-md navbar-light bg-primary"> {/* Mudança aqui */}
+  <div className="container-fluid">
+    
+    {/* Botão Hambúrguer - Só aparece no mobile por causa do navbar-expand-md */}
+    <button 
+      className="navbar-toggler mx-auto" 
+      type="button" 
+      data-bs-toggle="collapse" 
+      data-bs-target="#meuMenu"
+      aria-controls="meuMenu"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <span className="navbar-toggler-icon"></span>
+    </button>
+
+    <div className="collapse navbar-collapse" id="meuMenu">
+      <ul className="navbar-nav mx-auto"> 
         <li className="nav-item">
-          <Link className="nav-link" to="/"><img src="img/user.png" className="icon-profile" alt="Perfil" /></Link>
+          <Link className="nav-link" to="/">
+            <img src="img/user.png" className="icon-profile" alt="Perfil" style={{width: '30px'}} />
+          </Link>
         </li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/">Página principal</Link></li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/sobre">Dúvidas</Link></li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/agendamentos">Agendamentos</Link></li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/falar-ubs">Falar com a UBS</Link></li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/historico">Meu histórico</Link></li>
-        <li className="nav-item"><Link className="nav-link menu-text" to="/vacinas">Campanhas de vacinações</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/">Página principal</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/sobre">Dúvidas</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/agendamentos">Agendamentos</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/falar-ubs">Falar com a UBS</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/historico">Meu histórico</Link></li>
+        <li className="nav-item"><Link className="nav-link" to="/vacinas">Campanhas de vacinações</Link></li>
       </ul>
+    </div>
+  </div>
+</nav>
 
       <main className="container-fluid">
         <Routes>

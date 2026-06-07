@@ -3,8 +3,8 @@ p{
     margin: 0.5rem;
 }
 
-.nav-style{
-    background:blue;
+.d-flex button {
+  min-width: 200px; /* Ajuste para o tamanho que ficar melhor para você */
 }
 
 .menu-text{
@@ -14,6 +14,7 @@ p{
 .icon-profile{
     max-width: 1.5rem;
 }
+
 
 .buttton-acordeon-tittle{
     display: flex;
@@ -51,3 +52,15 @@ p{
 .button-search{
     margin: 2rem;
 }
+
+
+ @media (max-width: 768px) {
+      body {
+        padding: 1rem; /* Dá uma folga nas bordas da tela para o card não colar nas laterais */
+        justify-content: flex-start; /* No celular, começa do topo para o rodapé não encavalar */
+        padding-top: 2rem;
+      }
+
+
+
+    }
