@@ -7,13 +7,184 @@ import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css'; 
 import { useState, useRef, useEffect } from 'react';
+import React from 'react';
 
 // IMPORTAÇÃO CRÍTICA FALTANTE:
 import { createClient } from '@supabase/supabase-js';
 
+
+const PaginaLogin = () => {
+  const navigate = useNavigate();
+  
+  // ESTADOS DO COMPONENTE
+  const [perfil, setPerfil] = useState('paciente'); // 'paciente' ou 'medico'
+  const [documentoDigitado, setDocumentoDigitado] = useState('');
+  const [senha, setSenha] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState('');
+  
+  // 1. O NOVO ESTADO DO OLHINHO FICA AQUI:
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setCarregando(true);
+    setMensagemErro('');
+
+    try {
+      // Faz a consulta na tabela única do seu Supabase
+      const { data, error } = await supabase
+        .from('usuarios') // 🚨 LEMBRETE: Mude para o nome exato da sua tabela (Ex: 'Usuarios')
+        .select('*')
+        .eq('Documento', documentoDigitado.trim())
+        .eq('password', senha)
+        .eq('perfil', perfil)
+        .single();
+
+      if (error || !data) {
+        setMensagemErro(`⚠️ ${perfil === 'paciente' ? 'CPF' : 'CRM'} ou senha incorretos para este perfil.`);
+      } else {
+        console.log("Usuário autenticado:", data);
+        
+        // Guarda os dados básicos na sessão para usar nas outras telas
+        localStorage.setItem('id_usuario_logado', data.id);
+        localStorage.setItem('perfil_usuario', data.perfil);
+        
+        // Vai direto para a dashboard principal
+        navigate('/inicio');
+      }
+    } catch (err) {
+      console.error("Erro crítico no login:", err);
+      setMensagemErro('❌ Erro ao tentar conectar ao servidor.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+      <div className="card shadow" style={{ width: '24rem' }}>
+        <div className="card-header bg-primary text-white text-center fw-bold fs-5">
+          Sua Saúde - Portal de Acesso
+        </div>
+        
+        <div className="card-body">
+          {/* SELETOR DE PERFIL (Abas) */}
+          <div className="btn-group w-100 mb-4" role="group">
+            <button
+              type="button"
+              className={`btn ${perfil === 'paciente' ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => {
+                setPerfil('paciente');
+                setDocumentoDigitado('');
+                setMensagemErro('');
+              }}
+              disabled={carregando}
+            >
+              👤 Sou Paciente
+            </button>
+            <button
+              type="button"
+              className={`btn ${perfil === 'medico' ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => {
+                setPerfil('medico');
+                setDocumentoDigitado('');
+                setMensagemErro('');
+              }}
+              disabled={carregando}
+            >
+              🩺 Sou Médico
+            </button>
+          </div>
+
+          {/* MENSAGEM DE ERRO */}
+          {mensagemErro && (
+            <div className="alert alert-danger py-2 text-center small" role="alert">
+              {mensagemErro}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin}>
+            {/* CAMPO DINÂMICO PARA O DOCUMENTO */}
+            <div className="mb-3">
+              <label htmlFor="inputDocumento" className="form-label fw-bold">
+                {perfil === 'paciente' ? 'CPF do Paciente' : 'CRM do Médico'}
+              </label>
+              <input 
+                type="text" 
+                className="form-control" 
+                id="inputDocumento" 
+                placeholder={perfil === 'paciente' ? 'Digite seu CPF' : 'Digite seu CRM'} 
+                value={documentoDigitado}
+                onChange={(e) => setDocumentoDigitado(e.target.value)}
+                required 
+                disabled={carregando}
+              />
+            </div>
+
+            {/* 2. O NOVO CAMPO DA SENHA COM O BOTÃO ADICIONADO FICA AQUI: */}
+            <div className="mb-3">
+              <label htmlFor="inputPassword" className="form-label fw-bold">Senha</label>
+              <div className="input-group">
+                <input 
+                  type={mostrarSenha ? "text" : "password"} 
+                  className="form-control" 
+                  id="inputPassword" 
+                  placeholder="Digite sua senha" 
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  required 
+                  disabled={carregando}
+                />
+                <button 
+                  className="btn btn-outline-secondary" 
+                  type="button"
+                  onClick={() => setMostrarSenha(!mostrarSenha)} 
+                  disabled={carregando}
+                  title={mostrarSenha ? "Esconder senha" : "Mostrar senha"}
+                >
+                  {mostrarSenha ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
+
+            {/* BOTÃO DE ENTRAR */}
+            <div className="d-grid gap-2 mb-3">
+              <button type="submit" className="btn btn-primary" disabled={carregando}>
+                {carregando ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Autenticando...
+                  </>
+                ) : (
+                  `Entrar como ${perfil === 'paciente' ? 'Paciente' : 'Médico'}`
+                )}
+              </button>
+            </div>
+          </form>
+
+          <hr />
+
+          <div className="text-center">
+            <p className="small text-muted mb-2">Novo por aqui? Clique no botão abaixo para se cadastrar</p>
+            <button 
+              type="button" 
+              className="btn btn-outline-secondary btn-sm w-100"
+              onClick={() => alert('Tela de cadastro em desenvolvimento!')}
+              disabled={carregando}
+            >
+              Criar uma Conta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Informações do Supabase
 const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
-const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; // Lembre-se de usar variáveis de ambiente (.env) em produção!
+const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -222,7 +393,7 @@ const Agendarconsultas = () => {
   const minhasConsultas = [];
   const [diaSelecionado, setDiaSelecionado] = useState(null);
   
-  // NOVOS ESTADOS: Para controlar os horários ocupados vindos do banco
+  // ESTADOS: Para controlar os horários ocupados vindos do banco
   const [horariosOcupados, setHorariosOcupados] = useState([]);
   const [carregandoHorarios, setCarregandoHorarios] = useState(false);
 
@@ -323,13 +494,15 @@ const Agendarconsultas = () => {
     return {};
   };
 
-  const handleAgendarHorario = async (horario) => {
+  // 🚀 FUNÇÃO ATUALIZADA: Cria a consulta e envia o ID para a tela de sintomas
+ const handleAgendarHorario = async (horario) => {
     const numDia = diaSelecionado.getDate();             
     const numMes = diaSelecionado.getMonth() + 1;         
     const numAno = diaSelecionado.getFullYear();         
 
     try {
-      const { error } = await supabase
+      // 1. Faz o insert forçando o retorno de todas as colunas da linha criada
+      const { data, error } = await supabase
         .from('Agendamentos')
         .insert([
           { 
@@ -341,21 +514,42 @@ const Agendarconsultas = () => {
             ano: numAno,           
             status: 'agendado'   
           }
-        ]);
+        ])
+        .select('*'); // 🔑 Mudamos para '*' para garantir que o Supabase retorne a linha inteira com o ID
 
       if (error) {
-        console.error('Erro ao salvar:', error.message);
+        console.error('Erro ao salvar no Supabase:', error.message);
         alert(`Não foi possível agendar: ${error.message}`);
-      } else {
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // 🔑 CORREÇÃO AQUI: Mudado de data[0].id para data[0].id_consulta
+        const idGerado = data[0].id_consulta; 
+        console.log("🎉 Consulta criada com sucesso! ID:", idGerado);
+        
+        localStorage.setItem('ultimo_id_consulta', idGerado);
+        
         navigate('/consulta-agendada', {
           state: { 
             diaExibicao: diaSelecionado.toLocaleDateString('pt-BR'), 
-            horario: horario 
+            horario: horario,
+            idConsulta: idGerado 
+          }
+        });
+      
+      } else {
+        // Se por algum motivo o banco inseriu mas o select veio vazio, buscamos o último inserido por segurança
+        console.warn("⚠️ O banco não retornou o ID na hora. Redirecionando com verificação alternativa...");
+        navigate('/consulta-agendada', {
+          state: { 
+            diaExibicao: diaSelecionado.toLocaleDateString('pt-BR'), 
+            horario: horario
           }
         });
       }
     } catch (err) {
-      console.error('Erro crítico:', err);
+      console.error('Erro crítico no processo de agendamento:', err);
       alert('Erro de conexão ao tentar agendar.');
     }
   };
@@ -394,7 +588,6 @@ const Agendarconsultas = () => {
         {!diaSelecionado ? (
           <p className="text-muted m-0">👋 Selecione um dia útil no calendário acima para ver os horários disponíveis.</p>
         ) : carregandoHorarios ? (
-          // Mensagem visual enquanto o Supabase responde
           <div>
             <div className="spinner-border text-primary mb-2" role="status"></div>
             <p className="text-muted m-0">Consultando horários livres no banco de dados...</p>
@@ -506,35 +699,124 @@ const ConsultaAgendada = () => {
   const location = useLocation();
   const diaExibicao = location.state?.diaExibicao || 'X';
   const horario = location.state?.horario || 'Y';
+  
+  // 🔑 CAPTURA INTELIGENTE DO ID: 
+  // Tenta pegar da navegação. Se não achar, pega o que salvamos no localStorage!
+  const idConsulta = location.state?.idConsulta || localStorage.getItem('ultimo_id_consulta');
 
-  // 1. A função fica aqui fora do return
+  const [sintomas, setSintomas] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [statusSintomas, setStatusSintomas] = useState('');
+
   const confirmarAgendamento = () => {
     const mensagem = `Olá! Sua consulta está confirmada!\nData: ${diaExibicao}\nHorário: ${horario}\nDocumentos necessários: RG e Cartão do SUS.`;
-    
-    // Substitua pelo número real ou uma variável vinda do state
     const numero = "5524988299581"; 
     const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-    
     window.open(url, '_blank');
   };
 
-  return (
-    <div className="mt-5 p-5 bg-white border rounded shadow-sm text-center">
-      <h2 className="text-success mb-3">✔️ Consulta Agendada!</h2>
-      <p className="fs-4">
-        Sua consulta foi agendada com sucesso para o dia <strong className="text-primary">{diaExibicao}</strong> às <strong className="text-primary">{horario}</strong>.
-      </p>
-      <p className="text-muted">Os dados foram confirmados e salvos no banco de dados.</p>
+  
+  const salvarSintomasNoBanco = async () => {
+    if (!idConsulta) {
+      setStatusSintomas('erro');
+      console.error("❌ Erro: O ID da consulta não foi localizado.");
+      return;
+    }
 
-      {/* 2. Botão que chama a função */}
-      <div className="d-grid gap-2 mt-4">
-        <button className="btn btn-success" onClick={confirmarAgendamento}>
-          Enviar confirmação via WhatsApp
-        </button>
-        
-        <Link to="/agendamentos" className="btn btn-secondary mt-2">
-          Voltar para Agendamentos
-        </Link>
+    setSalvando(true);
+    setStatusSintomas('');
+
+    try {
+      const { error } = await supabase
+        .from('Agendamentos')
+        .update({ queixa_sintomas: sintomas })
+        .eq('id_consulta', idConsulta); // 🔑 CORREÇÃO AQUI: Mudado de 'id' para 'id_consulta' para bater com o seu banco!
+
+      if (error) {
+        console.error("🚨 Detalhes do erro no Supabase:", error.message);
+        setStatusSintomas('erro');
+      } else {
+        setStatusSintomas('sucesso');
+        localStorage.removeItem('ultimo_id_consulta'); 
+      }
+    } catch (err) {
+      console.error("Erro crítico ao tentar salvar sintomas:", err);
+      setStatusSintomas('erro');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="container mt-5" style={{ maxWidth: '600px' }}>
+      <div className="p-5 bg-white border rounded shadow-sm text-center">
+        <h2 className="text-success mb-3">✔️ Consulta Agendada!</h2>
+        <p className="fs-4">
+          Sua consulta foi agendada com sucesso para o dia <strong className="text-primary">{diaExibicao}</strong> às <strong className="text-primary">{horario}</strong>.
+        </p>
+        <p className="text-muted mb-4">Os dados essenciais foram confirmados e salvos no sistema.</p>
+
+        <hr />
+
+        {/* ESPAÇO PARA O PACIENTE RELATAR OS SINTOMAS */}
+        <div className="my-4 text-start p-3 bg-light rounded border">
+          <label htmlFor="textSintomas" className="form-label fw-bold text-primary">
+            🩺 Deseja adiantar o que está sentindo? (Opcional)
+          </label>
+          <p className="small text-muted mb-2">
+            Escreva brevemente seus sintomas (ex: dor de cabeça, febre, tosse). Isso ajuda o médico a se preparar para o seu atendimento.
+          </p>
+          
+          <textarea
+            className="form-control mb-2"
+            id="textSintomas"
+            rows="3"
+            placeholder="Digite aqui o que você está sentindo..."
+            value={sintomas}
+            onChange={(e) => setSintomas(e.target.value)}
+            disabled={salvando || statusSintomas === 'sucesso'}
+            maxLength={300}
+          />
+          
+          <div className="d-flex justify-content-between align-items-center">
+            <span className="small text-muted">{sintomas.length}/300 caracteres</span>
+            
+            {statusSintomas !== 'sucesso' && (
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={salvarSintomasNoBanco}
+                disabled={salvando || !sintomas.trim()}
+              >
+                {salvando ? "Salvando..." : "Salvar Sintomas"}
+              </button>
+            )}
+          </div>
+
+          {/* Feedbacks Visuais do Salvamento */}
+          {statusSintomas === 'sucesso' && (
+            <div className="alert alert-success mt-2 py-2 small text-center mb-0">
+              🎉 Sintomas adicionados ao seu prontuário com sucesso!
+            </div>
+          )}
+          {statusSintomas === 'erro' && (
+            <div className="alert alert-danger mt-2 py-2 small text-center mb-0">
+              ❌ Erro ao salvar sintomas. Tente novamente.
+            </div>
+          )}
+        </div>
+
+        <hr />
+
+        {/* BOTÕES DE AÇÃO */}
+        <div className="d-grid gap-2 mt-4">
+          <button className="btn btn-success py-2 fw-bold" onClick={confirmarAgendamento}>
+            Enviar confirmação via WhatsApp
+          </button>
+          
+          <Link to="/agendamentos" className="btn btn-outline-secondary mt-2">
+            Voltar para Agendamentos
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -585,47 +867,71 @@ const Vacinas = () => (
 </div>
   </div>
 );
+// Lembre-se de verificar os caminhos dos seus componentes importados aqui em cima, por exemplo:
+// import PaginaLogin from './PaginaLogin';
+// import PaginaPrincipal from './PaginaPrincipal';
+// ... etc
 
-function App() {
+// Este componente serve para monitorar a rota atual e decidir se mostra o menu
+function ConteudoDoApp() {
+  const location = useLocation();
+
+  // Define que a barra de navegação NÃO deve aparecer se a rota for exatamente "/" (Tela de Login)
+  const escondeNavbar = location.pathname === '/';
+
   return (
-    <Router>
-      <nav className="navbar navbar-expand-md navbar-light bg-primary"> {/* Mudança aqui */}
-  <div className="container-fluid">
-    
-    {/* Botão Hambúrguer - Só aparece no mobile por causa do navbar-expand-md */}
-    <button 
-      className="navbar-toggler mx-auto" 
-      type="button" 
-      data-bs-toggle="collapse" 
-      data-bs-target="#meuMenu"
-      aria-controls="meuMenu"
-      aria-expanded="false"
-      aria-label="Toggle navigation"
-    >
-      <span className="navbar-toggler-icon"></span>
-    </button>
+    <>
+      {/* A Navbar só será renderizada se NÃO for a página de login */}
+      {!escondeNavbar && (
+        <nav className="navbar navbar-expand-md navbar-light bg-primary">
+          <div className="container-fluid">
+            
+            {/* Botão Hambúrguer - Só aparece no mobile por causa do navbar-expand-md */}
+            <button 
+              className="navbar-toggler mx-auto" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#meuMenu"
+              aria-controls="meuMenu"
+              aria-expanded="false"
+              aria-label="Toggle navigation"
+            >
+              <span className="navbar-toggler-icon"></span>
+            </button>
 
-    <div className="collapse navbar-collapse" id="meuMenu">
-      <ul className="navbar-nav mx-auto"> 
-        <li className="nav-item">
-          <Link className="nav-link" to="/">
-            <img src="img/user.png" className="icon-profile" alt="Perfil" style={{width: '30px'}} />
-          </Link>
-        </li>
-        <li className="nav-item"><Link className="nav-link" to="/">Página principal</Link></li>
-        <li className="nav-item"><Link className="nav-link" to="/sobre">Dúvidas</Link></li>
-        <li className="nav-item"><Link className="nav-link" to="/agendamentos">Agendamentos</Link></li>
-        <li className="nav-item"><Link className="nav-link" to="/falar-ubs">Falar com a UBS</Link></li>
-        <li className="nav-item"><Link className="nav-link" to="/historico">Meu histórico</Link></li>
-        <li className="nav-item"><Link className="nav-link" to="/vacinas">Campanhas de vacinações</Link></li>
-      </ul>
-    </div>
-  </div>
-</nav>
+            <div className="collapse navbar-collapse" id="meuMenu">
+              <ul className="navbar-nav mx-auto"> 
+                <li className="nav-item">
+                  {/* AJUSTE: Link do perfil agora vai para /inicio */}
+                  <Link className="nav-link" to="/inicio">
+                    <img src="img/user.png" className="icon-profile" alt="Perfil" style={{width: '30px'}} />
+                  </Link>
+                </li>
+                {/* AJUSTE: Página principal agora aponta para /inicio */}
+                <li className="nav-item"><Link className="nav-link" to="/inicio">Página principal</Link></li>
+                <li className="nav-item"><Link className="nav-link" to="/sobre">Dúvidas</Link></li>
+                <li className="nav-item"><Link className="nav-link" to="/agendamentos">Agendamentos</Link></li>
+                <li className="nav-item"><Link className="nav-link" to="/falar-ubs">Falar com a UBS</Link></li>
+                <li className="nav-item"><Link className="nav-link" to="/historico">Meu histórico</Link></li>
+                <li className="nav-item"><Link className="nav-link" to="/vacinas">Campanhas de vacinações</Link></li>
+                {/* Opcional: Um botão para deslogar e voltar para a tela de login */}
+                <li className="nav-item"><Link className="nav-link text-white-50" to="/">Sair</Link></li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+      )}
 
+      {/* Miolo do site onde os componentes de cada página são injetados */}
       <main className="container-fluid">
         <Routes>
-          <Route path="/" element={<PaginaPrincipal />} />
+          {/* Rota raiz '/' agora é estritamente a sua nova página de login */}
+          <Route path="/" element={<PaginaLogin />} />
+          
+          {/* A Página Principal mudou para '/inicio' para o Menu não aparecer no Login */}
+          <Route path="/inicio" element={<PaginaPrincipal />} />
+          
+          {/* Suas outras rotas continuam iguaizinhas */}
           <Route path="/sobre" element={<Sobre />} />
           <Route path="/agendamentos" element={<Agendamentos />} />
           <Route path="/falar-ubs" element={<FalarUBS />} />
@@ -636,6 +942,15 @@ function App() {
           <Route path="/consultas-marcadas" element={<ConsultasMarcadas />} />
         </Routes>
       </main>
+    </>
+  );
+}
+
+// O componente App principal apenas envelopa tudo com o BrowserRouter (Router)
+function App() {
+  return (
+    <Router>
+      <ConteudoDoApp />
     </Router>
   );
 }
