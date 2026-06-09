@@ -22,8 +22,6 @@ const PaginaLogin = () => {
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState('');
-  
-  // 1. O NOVO ESTADO DO OLHINHO FICA AQUI:
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
   const handleLogin = async (e) => {
@@ -32,9 +30,11 @@ const PaginaLogin = () => {
     setMensagemErro('');
 
     try {
-      // Faz a consulta na tabela única do seu Supabase
+      console.log(`🔐 Tentando logar perfil [${perfil}] com Documento:`, documentoDigitado.trim());
+
+      // Faz a consulta na tabela única de usuários criada no seu banco
       const { data, error } = await supabase
-        .from('usuarios') // 🚨 LEMBRETE: Mude para o nome exato da sua tabela (Ex: 'Usuarios')
+        .from('usuarios') // Certifique-se de que o nome está idêntico (maiúsculas/minúsculas) no Supabase
         .select('*')
         .eq('Documento', documentoDigitado.trim())
         .eq('password', senha)
@@ -42,14 +42,17 @@ const PaginaLogin = () => {
         .single();
 
       if (error || !data) {
+        console.warn("⚠️ Falha na busca por usuário:", error?.message || "Nenhum registro encontrado");
         setMensagemErro(`⚠️ ${perfil === 'paciente' ? 'CPF' : 'CRM'} ou senha incorretos para este perfil.`);
       } else {
-        console.log("Usuário autenticado:", data);
+        console.log("🎉 Usuário autenticado com sucesso na tabela usuarios:", data);
         
-        // Guarda os dados básicos na sessão para usar nas outras telas
+        // 🔑 Guarda o ID único do registro e o perfil na sessão do navegador
         localStorage.setItem('id_usuario_logado', data.id);
         localStorage.setItem('perfil_usuario', data.perfil);
         
+        console.log("💾 ID salvo no localStorage com sucesso:", localStorage.getItem('id_usuario_logado'));
+
         // Vai direto para a dashboard principal
         navigate('/inicio');
       }
@@ -122,7 +125,7 @@ const PaginaLogin = () => {
               />
             </div>
 
-            {/* 2. O NOVO CAMPO DA SENHA COM O BOTÃO ADICIONADO FICA AQUI: */}
+            {/* CAMPO DA SENHA COM O BOTÃO DE EXIBIR */}
             <div className="mb-3">
               <label htmlFor="inputPassword" className="form-label fw-bold">Senha</label>
               <div className="input-group">
@@ -183,41 +186,108 @@ const PaginaLogin = () => {
 };
 
 // Informações do Supabase
+
 const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
 const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true, // 🔑 ISSO DAQUI garante que a sessão fique salva no navegador
+    autoRefreshToken: true,
+  }
+});
 
 const PaginaPrincipal = () => {
+  const [nomePaciente, setNomePaciente] = useState('');
   const [urlMaps, setUrlMaps] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erroLocalizacao, setErroLocalizacao] = useState(false);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setCarregando(false);
-      return;
-    }
+    const inicializarPagina = async () => {
+      // --- 1. BUSCA O NOME DO PACIENTE LOGADO VIA LOCALSTORAGE ---
+      try {
+        const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+        console.log("🔍 [TESTE LOG] ID do usuário vindo do localStorage:", idUsuarioLogado);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        // CORREÇÃO: URL oficial e funcional do Google Maps para buscar pontos próximos
-        setUrlMaps(`https://www.google.com/maps/search/?api=1&query=posto+de+saude+ubs&center=${latitude},${longitude}`);
-        setCarregando(false);
-      },
-      (error) => {
-        console.error("Erro de geolocalização:", error);
-        setErroLocalizacao(true);
-        setCarregando(false);
-      }
+        if (idUsuarioLogado) {
+          // 🔑 Trocamos os nomes das colunas por '*' para o Supabase não quebrar com o acento de 'id_usuário' na URL
+          const { data: todosPacientes, error: dbError } = await supabase
+            .from('Tabela pacientes')   
+            .select('*'); 
+
+          console.log("📊 [TESTE LOG] Dados brutos recebidos da tabela:", todosPacientes);
+
+          if (dbError) {
+            console.error("🚨 [TESTE LOG] Erro retornado pela tabela:", dbError.message);
+          }
+
+          if (todosPacientes && todosPacientes.length > 0) {
+  // Limpa o ID que veio do localStorage removendo espaços vazios nas pontas
+  const idLimpoLocalStorage = String(idUsuarioLogado).trim().toLowerCase();
+
+  const pacienteEncontrado = todosPacientes.find((p) => {
+    // Procura por qualquer variação do nome da coluna de ID no objeto do banco
+    const idBancoBruto = p['id_usuário'] || p['id_usuario'] || p.id_usuario;
+    
+    if (!idBancoBruto) return false;
+
+    // Limpa o ID do banco da mesma forma
+    const idBancoLimpo = String(idBancoBruto).trim().toLowerCase();
+
+    // Compara se um ID está contido no outro ou se são idênticos
+    return idBancoLimpo === idLimpoLocalStorage || idBancoLimpo.includes(idLimpoLocalStorage);
+  });
+
+  if (pacienteEncontrado) {
+    // Captura o nome testando variações de maiúsculas/minúsculas da coluna
+    const nomeEncontrado = pacienteEncontrado['Nome completo'] || pacienteEncontrado['Nome Completo'] || pacienteEncontrado.Nome_completo;
+    
+    console.log("🎉 [TESTE LOG] Sucesso total! Nome encontrado:", nomeEncontrado);
+    setNomePaciente(nomeEncontrado);
+  } else {
+    console.warn("⚠️ [TESTE LOG] Os IDs não casaram na comparação direta. IDs disponíveis no banco:", 
+      todosPacientes.map(p => p['id_usuário'] || p['id_usuario'])
     );
-  }, []);
+  }
 
+          } else {
+            console.warn("⚠️ [TESTE LOG] A tabela retornou totalmente vazia do banco.");
+          }
+        } else {
+          console.warn("⚠️ [TESTE LOG] Nenhum ID encontrado no localStorage. Faça login primeiro!");
+        }
+      } catch (err) {
+        console.error("💥 [TESTE LOG] Erro crítico no bloco JavaScript:", err);
+      }
+
+      // --- 2. GEOLOCALIZAÇÃO ---
+      if (!navigator.geolocation) {
+        setCarregando(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUrlMaps(`https://www.google.com/maps/search/?api=1&query=posto+de+saude+ubs&center=${latitude},${longitude}`);
+          setCarregando(false);
+        },
+        (error) => {
+          console.error("Erro de geolocalização:", error);
+          setErroLocalizacao(true);
+          setCarregando(false);
+        }
+      );
+    };
+
+    inicializarPagina();
+  }, []);
   return (
     <div className="mt-4 home">
-      <h2>Bem-vindo, paciente!!</h2>
+      <h2>Bem-vindo, <span className="text-primary">{nomePaciente || 'paciente'}</span>!!</h2>
       
+      {/* CAROUSEL */}
       <div id="carouselExampleCaptions" className="carousel slide carousel-fade mod-carousel" data-bs-ride="carousel">
         <div className="carousel-indicators">
           <button type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide-to="0" className="active" aria-current="true" aria-label="Slide 1"></button>
@@ -261,6 +331,7 @@ const PaginaPrincipal = () => {
         </button>
       </div>
       
+      {/* SEÇÃO DO BOTÃO DE BUSCA DA UBS */}
       <div className="d-grid gap-2 button-search mt-4">
         <p className="text-center">Precisa de ajuda?</p>
         
@@ -293,6 +364,183 @@ const PaginaPrincipal = () => {
   );
 };
 
+const Meusdados = () => {
+  // Estados para armazenar os campos do formulário
+  const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    const buscarDadosPaciente = async () => {
+      try {
+        const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+        console.log("🔍 [FORM LOG] ID do localStorage:", idUsuarioLogado);
+        
+        if (!idUsuarioLogado) {
+          setErro('Nenhum usuário logado encontrado. Faça o login novamente.');
+          setCarregando(false);
+          return;
+        }
+
+        // Busca todos os dados da tabela para evitar problemas com acentos na URL
+        const { data: todosPacientes, error: dbError } = await supabase
+          .from('Tabela pacientes')
+          .select('*');
+
+        if (dbError) {
+          throw dbError;
+        }
+
+        console.log("📊 [FORM LOG] Dados brutos vindos do banco:", todosPacientes);
+
+        if (todosPacientes && todosPacientes.length > 0) {
+          // Procura o paciente correspondente usando a mesma lógica que funcionou na principal
+          const pacienteEncontrado = todosPacientes.find((p) => {
+            const idBancoBruto = p['id_usuário'] || p['id_usuario'] || p.id_usuario;
+            return String(idBancoBruto).trim().toLowerCase() === String(idUsuarioLogado).trim().toLowerCase();
+          });
+
+          if (pacienteEncontrado) {
+            console.log("🎉 [FORM LOG] Registro do paciente encontrado no banco:", pacienteEncontrado);
+
+            // 1. Nome Completo (Já sabemos que no banco está 'Nome completo')
+            setNome(pacienteEncontrado['Nome completo'] || '');
+
+            // 2. CPF (Testa variações comuns de escrita)
+            // Se no seu banco a coluna se chamar 'cpf_paciente' ou 'Nº CPF', mude aqui embaixo:
+            setCpf(pacienteEncontrado['CPF'] || pacienteEncontrado['cpf'] || pacienteEncontrado['Cpf'] || 'Não encontrado');
+
+            // 3. Telefone (Testa variações comuns de escrita)
+            setTelefone(pacienteEncontrado['Telefone'] || pacienteEncontrado['telefone'] || pacienteEncontrado['Celular'] || 'Não encontrado');
+
+            // 4. Data de Nascimento (Testa variações comuns de escrita)
+            setDataNascimento(pacienteEncontrado['Data de Nascimento'] || pacienteEncontrado['data_nascimento'] || pacienteEncontrado['Nascimento'] || '');
+            
+          } else {
+            setErro('Seu perfil de paciente não foi localizado no banco de dados.');
+          }
+        } else {
+          setErro('Nenhum registro de paciente encontrado no servidor.');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados do formulário:', err);
+        setErro('Erro crítico ao conectar com o banco de dados.');
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    buscarDadosPaciente();
+  }, []);
+
+  if (carregando) {
+    return (
+      <div className="d-flex align-items-center justify-content-center p-5">
+        <div className="spinner-border text-primary me-2" role="status"></div>
+        <span>Carregando suas informações...</span>
+      </div>
+    );
+  }
+
+  if (erro) {
+    return (
+      <div className="alert alert-danger my-4 text-center" role="alert">
+        ⚠️ {erro}
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mt-4" style={{ maxWidth: '600px' }}>
+      <div className="card shadow-sm">
+        <div className="card-header bg-primary text-white fw-bold fs-5 text-center">
+          🗂️ Meus Dados Cadastrais
+        </div>
+        <div className="card-body p-4">
+          <p className="text-muted small text-center mb-4">
+            Abaixo estão as suas informações registradas no sistema da UBS.
+          </p>
+
+          <form onSubmit={(e) => e.preventDefault()}>
+            {/* CAMPO NOME */}
+            <div className="mb-3">
+              <label htmlFor="formNome" className="form-label fw-bold text-secondary">
+                Nome Completo
+              </label>
+              <input
+                type="text"
+                className="form-control bg-light"
+                id="formNome"
+                value={nome}
+                readOnly
+              />
+            </div>
+
+            {/* CAMPO CPF */}
+            <div className="mb-3">
+              <label htmlFor="formCpf" className="form-label fw-bold text-secondary">
+                CPF
+              </label>
+              <input
+                type="text"
+                className="form-control bg-light"
+                id="formCpf"
+                value={cpf}
+                readOnly
+              />
+            </div>
+
+            <div className="row">
+              {/* CAMPO TELEFONE */}
+              <div className="col-md-6 mb-3">
+                <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
+                  Telefone / Celular
+                </label>
+                <input
+                  type="text"
+                  className="form-control bg-light"
+                  id="formTelefone"
+                  value={telefone}
+                  readOnly
+                />
+              </div>
+
+              {/* CAMPO DATA DE NASCIMENTO */}
+              <div className="col-md-6 mb-3">
+                <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
+                  Data de Nascimento
+                </label>
+                <input
+                  type="text"
+                  className="form-control bg-light"
+                  id="formDataNasc"
+                  value={dataNascimento}
+                  readOnly
+                />
+              </div>
+            </div>
+
+            <hr className="my-4" />
+
+            {/* AVISO DO SISTEMA */}
+            <div className="text-center">
+              <span className="badge bg-secondary p-2 small">
+                🔒 Dados protegidos pela recepção da UBS
+              </span>
+              <p className="text-muted mt-2" style={{ fontSize: '11px' }}>
+                Para alterar qualquer informação acima, por favor, compareça à sua UBS portando um documento oficial com foto.
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Sobre = () => {
   const [documentos, setDocumentos] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -302,8 +550,8 @@ const Sobre = () => {
       setCarregando(true);
       try {
         const { data, error } = await supabase
-          .from('Documentos_necessarios') // Garanta que o 'D' está maiúsculo aqui
-          .select('id_documento, nome_documento, descrição_documento'); // Buscando também a descrição
+          .from('Documentos_necessarios') 
+          .select('id_documento, nome_documento, descrição_documento'); 
 
         if (error) {
           console.error("Erro ao buscar documentos:", error.message);
@@ -903,7 +1151,7 @@ function ConteudoDoApp() {
               <ul className="navbar-nav mx-auto"> 
                 <li className="nav-item">
                   {/* AJUSTE: Link do perfil agora vai para /inicio */}
-                  <Link className="nav-link" to="/inicio">
+                  <Link className="nav-link" to="/Meusdados">
                     <img src="img/user.png" className="icon-profile" alt="Perfil" style={{width: '30px'}} />
                   </Link>
                 </li>
@@ -932,6 +1180,7 @@ function ConteudoDoApp() {
           <Route path="/inicio" element={<PaginaPrincipal />} />
           
           {/* Suas outras rotas continuam iguaizinhas */}
+          <Route path="/Meusdados" element={<Meusdados />} />
           <Route path="/sobre" element={<Sobre />} />
           <Route path="/agendamentos" element={<Agendamentos />} />
           <Route path="/falar-ubs" element={<FalarUBS />} />
