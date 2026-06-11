@@ -1,26 +1,76 @@
-<div class="card" style="width: 18rem;">
-  <div class="card-header">
-    Sua Saúde
-  </div>
-  <form>
-  <div class="form-group row">
-    <label for="inputEmail3" class="col-sm-2 col-form-label">Login</label>
-    <div class="col-sm-10">
-      <input type="email" class="form-control" id="inputEmail3" placeholder="Email">
-    </div>
-  </div>
-  <div class="form-group row">
-    <label for="inputPassword3" class="col-sm-2 col-form-label">Senha</label>
-    <div class="col-sm-10">
-      <input type="password" class="form-control" id="inputPassword3" placeholder="Password">
-    </div>
-    <div class="col-sm-10">
-      <button type="submit" class="btn btn-primary">Entrar</button>
-    </div>
-  </div>
-  <p> Novo por aqui? Clique no botão abaixo para se cadastrar</p>
-  <button class="btn btn-primary">Cadastro</button>
-  </form>
-</div>
+<!DOCTYPE html>
 
+ <form>
+            {/* CAMPO NOME */}
+            <div className="mb-3">
+              <label htmlFor="formNome" className="form-label fw-bold text-secondary">
+                Nome Completo
+              </label>
+              <input
+                type="text"
+                className="form-control bg-light"
+                id="formNome"
+                value={nome}
+                readOnly
+              />
+            </div>
+
+            {/* CAMPO CPF */}
+            <div className="mb-3">
+              <label htmlFor="formCpf" className="form-label fw-bold text-secondary">
+                CPF
+              </label>
+              <input
+                type="text"
+                className="form-control bg-light"
+                id="formCpf"
+                value={cpf}
+                readOnly
+              />
+            </div>
+
+           <div className="row g-3"> {/* Adicionado g-3 para um espaçamento mais elegante entre os campos */}
+  
+  {/* CAMPO TELEFONE */}
+  <div className="col-12 col-md-6 mb-3">
+    <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
+      Telefone / Celular
+    </label>
+    <input
+      type="text"
+      className="form-control bg-light"
+      id="formTelefone"
+    />
+  </div>
+
+  {/* CAMPO DATA DE NASCIMENTO */}
+  <div className="col-12 col-md-6 mb-3">
+    <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
+      Data de Nascimento
+    </label>
+    <input
+      type="text"
+      className="form-control bg-light"
+      id="formDataNasc"
+   
+    />
+  </div>
+  
+</div>
+            <hr className="my-4" />
+
+            {/* AVISO DO SISTEMA */}
+            <div className="text-center">
+              <span className="badge bg-secondary p-2 small">
+                🔒 Dados protegidos pela recepção da UBS
+              </span>
+              <p className="text-muted mt-2">
+                Para alterar qualquer informação acima, por favor, compareça à sua UBS portando um documento oficial com foto.
+              </p>
+            </div>
+          </form>
+
+
+
+</html>
 

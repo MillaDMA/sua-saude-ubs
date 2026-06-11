@@ -1,4 +1,6 @@
 
+
+
 p{
     margin: 0.5rem;
 }
@@ -53,8 +55,18 @@ p{
     margin: 2rem;
 }
 
+.info-div{
+    display: inline-block;
+    justify-content: center;
+    max-width: 85%;
+    padding: 2rem;
+}
+
+
 
  @media (max-width: 768px) {
+    
+    
       body {
         padding: 1rem; /* Dá uma folga nas bordas da tela para o card não colar nas laterais */
         justify-content: flex-start; /* No celular, começa do topo para o rodapé não encavalar */

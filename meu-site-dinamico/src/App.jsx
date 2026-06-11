@@ -8,9 +8,10 @@ import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css'; 
 import { useState, useRef, useEffect } from 'react';
 import React from 'react';
-
-// IMPORTAÇÃO CRÍTICA FALTANTE:
 import { createClient } from '@supabase/supabase-js';
+
+import ConsultasMarcadasPorMedico from './pages/paginadocinterface';
+
 
 
 const PaginaLogin = () => {
@@ -64,121 +65,192 @@ const PaginaLogin = () => {
     }
   };
 
-  return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div className="card shadow" style={{ width: '24rem' }}>
-        <div className="card-header bg-primary text-white text-center fw-bold fs-5">
-          Sua Saúde - Portal de Acesso
-        </div>
+    return (
+    // 1. O container garante que a tela ganhe margens laterais no mobile e centraliza verticalmente com o vh-100
+    <div className="container-fluid d-flex justify-content-center align-items-center vh-100 bg-light px-3">
+      
+      {/* 2. O sistema de grid ativa o cálculo dinâmico do Bootstrap */}
+      <div className="row w-100 justify-content-center">
         
-        <div className="card-body">
-          {/* SELETOR DE PERFIL (Abas) */}
-          <div className="btn-group w-100 mb-4" role="group">
-            <button
-              type="button"
-              className={`btn ${perfil === 'paciente' ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => {
-                setPerfil('paciente');
-                setDocumentoDigitado('');
-                setMensagemErro('');
-              }}
-              disabled={carregando}
-            >
-              👤 Sou Paciente
-            </button>
-            <button
-              type="button"
-              className={`btn ${perfil === 'medico' ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => {
-                setPerfil('medico');
-                setDocumentoDigitado('');
-                setMensagemErro('');
-              }}
-              disabled={carregando}
-            >
-              🩺 Sou Médico
-            </button>
+        {/* 🔑 O SEGREDO DA RESPONSIVIDADE AQUI:
+            col-12: Em celulares, ocupa o espaço horizontal total disponível.
+            No style, usamos maxWidth: '384px' para que em computadores ele NUNCA passe do tamanho elegante que você definiu originalmente.
+        */}
+        <div className="col-12" style={{ maxWidth: '384px' }}>
+          
+          {/* O Card agora se molda ao tamanho da coluna automaticamente */}
+          <div className="card shadow w-100">
+            <div className="card-header bg-primary text-white text-center fw-bold fs-5">
+              Sua Saúde - Portal de Acesso
+            </div>
+            
+            <div className="card-body p-4" style={{ boxSizing: 'border-box' }}>
+  
+  {/* 1. SELETOR DE PERFIL (BOTÕES SUPERIORES BLINDADOS) */}
+  <div className="d-flex w-100 mb-4" style={{ display: 'flex !important', width: '100% !important', gap: '8px', boxSizing: 'border-box' }}>
+    <button
+      type="button"
+      className={`btn ${perfil === 'paciente' ? 'btn-primary' : 'btn-outline-primary'}`}
+      onClick={() => {
+        setPerfil('paciente');
+        setDocumentoDigitado('');
+        setMensagemErro('');
+      }}
+      disabled={carregando}
+      style={{
+        flex: '1',
+        width: '50%',
+        maxWidth: '50%',
+        minWidth: '0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        fontSize: '14px',
+        padding: '8px 4px',
+        boxSizing: 'border-box'
+      }}
+    >
+      👤 Paciente
+    </button>
+    <button
+      type="button"
+      className={`btn ${perfil === 'medico' ? 'btn-primary' : 'btn-outline-primary'}`}
+      onClick={() => {
+        setPerfil('medico');
+        setDocumentoDigitado('');
+        setMensagemErro('');
+      }}
+      disabled={carregando}
+      style={{
+        flex: '1',
+        width: '50%',
+        maxWidth: '50%',
+        minWidth: '0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        fontSize: '14px',
+        padding: '8px 4px',
+        boxSizing: 'border-box'
+      }}
+    >
+     🩺 Médico
+    </button>
+  </div>
+
+  {/* MENSAGEM DE ERRO */}
+  {mensagemErro && (
+    <div className="alert alert-danger py-2 text-center small" role="alert">
+      {mensagemErro}
+    </div>
+  )}
+
+  <form onSubmit={handleLogin} style={{ width: '100%' }}>
+    {/* 2. CAMPO DINÂMICO PARA O DOCUMENTO */}
+    <div className="mb-3 text-center">
+      <label htmlFor="inputDocumento" className="form-label fw-bold d-block mb-2">
+        {perfil === 'paciente' ? 'CPF do Paciente' : 'CRM do Médico'}
+      </label>
+      <input 
+        type="text" 
+        className="form-control" 
+        id="inputDocumento" 
+        placeholder={perfil === 'paciente' ? 'Digite seu CPF' : 'Digite seu CRM'} 
+        value={documentoDigitado}
+        onChange={(e) => setDocumentoDigitado(e.target.value)}
+        required 
+        disabled={carregando}
+        style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+      />
+    </div>
+
+    {/* 3. CAMPO DA SENHA TOTALMENTE BLINDADO CONTRA CSS EXTERNO */}
+    <div className="mb-3" style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+  <label htmlFor="inputPassword" className="form-label fw-bold d-block text-center mb-2">
+    Senha
+  </label>
+  
+  {/* Container relativo que segura o input e o ícone juntos */}
+  <div style={{ position: 'relative', width: '100%' }}>
+    <input 
+      type={mostrarSenha ? "text" : "password"} 
+      className="form-control" 
+      id="inputPassword" 
+      placeholder="Digite sua senha" 
+      value={senha}
+      onChange={(e) => setSenha(e.target.value)}
+      required 
+      disabled={carregando}
+      style={{ 
+        width: '100%',
+        paddingRight: '40px', /* Abre espaço na direita para o texto não ficar embaixo do olho */
+        boxSizing: 'border-box',
+        height: '42px'
+      }}
+    />
+    
+    {/* Botão invisível posicionado cirurgicamente no canto direito interno */}
+    <button 
+      className="btn" 
+      type="button"
+      onClick={() => setMostrarSenha(!mostrarSenha)} 
+      disabled={carregando}
+      title={mostrarSenha ? "Esconder senha" : "Mostrar senha"}
+      style={{ 
+        position: 'absolute',
+        right: '10px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        border: 'none',
+        background: 'none',
+        padding: '0',
+        margin: '0',
+        width: '24px',  /* Tamanho reduzido e controlado do botão */
+        height: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 5,
+        fontSize: '16px', /* Controla o tamanho do emoji do olho */
+        boxShadow: 'none'
+      }}
+    >
+      {mostrarSenha ? "🙈" : "👁️"}
+    </button>
+  </div>
+</div>
+
+    {/* BOTÃO DE ENTRAR */}
+    <div className="mb-3 mt-4" style={{ width: '100%' }}>
+      <button 
+        type="submit" 
+        className="btn btn-primary w-100" 
+        disabled={carregando}
+        style={{ width: '100%', display: 'block', boxSizing: 'border-box' }}
+      >
+        {carregando ? 'Autenticando...' : `Entrar como ${perfil === 'paciente' ? 'Paciente' : 'Médico'}`}
+      </button>
+    </div>
+  </form>
+
+  <hr />
+
+  <div className="text-center" style={{ width: '100%' }}>
+    <p className="small text-muted mb-2">Novo por aqui? Clique no botão abaixo para se cadastrar</p>
+    <button 
+      type="button" 
+      className="btn btn-outline-secondary btn-sm w-100"
+      onClick={() => alert('Tela de cadastro em desenvolvimento!')}
+      disabled={carregando}
+      style={{ width: '100%', boxSizing: 'border-box' }}
+    >
+      Criar uma Conta
+    </button>
+  </div>
+</div>
+            
           </div>
 
-          {/* MENSAGEM DE ERRO */}
-          {mensagemErro && (
-            <div className="alert alert-danger py-2 text-center small" role="alert">
-              {mensagemErro}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin}>
-            {/* CAMPO DINÂMICO PARA O DOCUMENTO */}
-            <div className="mb-3">
-              <label htmlFor="inputDocumento" className="form-label fw-bold">
-                {perfil === 'paciente' ? 'CPF do Paciente' : 'CRM do Médico'}
-              </label>
-              <input 
-                type="text" 
-                className="form-control" 
-                id="inputDocumento" 
-                placeholder={perfil === 'paciente' ? 'Digite seu CPF' : 'Digite seu CRM'} 
-                value={documentoDigitado}
-                onChange={(e) => setDocumentoDigitado(e.target.value)}
-                required 
-                disabled={carregando}
-              />
-            </div>
-
-            {/* CAMPO DA SENHA COM O BOTÃO DE EXIBIR */}
-            <div className="mb-3">
-              <label htmlFor="inputPassword" className="form-label fw-bold">Senha</label>
-              <div className="input-group">
-                <input 
-                  type={mostrarSenha ? "text" : "password"} 
-                  className="form-control" 
-                  id="inputPassword" 
-                  placeholder="Digite sua senha" 
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  required 
-                  disabled={carregando}
-                />
-                <button 
-                  className="btn btn-outline-secondary" 
-                  type="button"
-                  onClick={() => setMostrarSenha(!mostrarSenha)} 
-                  disabled={carregando}
-                  title={mostrarSenha ? "Esconder senha" : "Mostrar senha"}
-                >
-                  {mostrarSenha ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            {/* BOTÃO DE ENTRAR */}
-            <div className="d-grid gap-2 mb-3">
-              <button type="submit" className="btn btn-primary" disabled={carregando}>
-                {carregando ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Autenticando...
-                  </>
-                ) : (
-                  `Entrar como ${perfil === 'paciente' ? 'Paciente' : 'Médico'}`
-                )}
-              </button>
-            </div>
-          </form>
-
-          <hr />
-
-          <div className="text-center">
-            <p className="small text-muted mb-2">Novo por aqui? Clique no botão abaixo para se cadastrar</p>
-            <button 
-              type="button" 
-              className="btn btn-outline-secondary btn-sm w-100"
-              onClick={() => alert('Tela de cadastro em desenvolvimento!')}
-              disabled={carregando}
-            >
-              Criar uma Conta
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -203,82 +275,63 @@ const PaginaPrincipal = () => {
   const [carregando, setCarregando] = useState(true);
   const [erroLocalizacao, setErroLocalizacao] = useState(false);
 
-  useEffect(() => {
+ useEffect(() => {
     const inicializarPagina = async () => {
-      // --- 1. BUSCA O NOME DO PACIENTE LOGADO VIA LOCALSTORAGE ---
+      setCarregando(true);
+      
       try {
+        // --- 1. BUSCA O ID E O PERFIL DO USUÁRIO VIA LOCALSTORAGE ---
         const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
-        console.log("🔍 [TESTE LOG] ID do usuário vindo do localStorage:", idUsuarioLogado);
+        const perfilUsuario = localStorage.getItem('perfil_usuario'); // 🔑 Pegamos o perfil salvo ('paciente' ou 'medico')
+        
+        console.log(`🔍 [TESTE LOG] Usuário ID: ${idUsuarioLogado} | Perfil: ${perfilUsuario}`);
 
-        if (idUsuarioLogado) {
-          // 🔑 Trocamos os nomes das colunas por '*' para o Supabase não quebrar com o acento de 'id_usuário' na URL
-          const { data: todosPacientes, error: dbError } = await supabase
-            .from('Tabela pacientes')   
-            .select('*'); 
-
-          console.log("📊 [TESTE LOG] Dados brutos recebidos da tabela:", todosPacientes);
-
-          if (dbError) {
-            console.error("🚨 [TESTE LOG] Erro retornado pela tabela:", dbError.message);
-          }
-
-          if (todosPacientes && todosPacientes.length > 0) {
-  // Limpa o ID que veio do localStorage removendo espaços vazios nas pontas
-  const idLimpoLocalStorage = String(idUsuarioLogado).trim().toLowerCase();
-
-  const pacienteEncontrado = todosPacientes.find((p) => {
-    // Procura por qualquer variação do nome da coluna de ID no objeto do banco
-    const idBancoBruto = p['id_usuário'] || p['id_usuario'] || p.id_usuario;
-    
-    if (!idBancoBruto) return false;
-
-    // Limpa o ID do banco da mesma forma
-    const idBancoLimpo = String(idBancoBruto).trim().toLowerCase();
-
-    // Compara se um ID está contido no outro ou se são idênticos
-    return idBancoLimpo === idLimpoLocalStorage || idBancoLimpo.includes(idLimpoLocalStorage);
-  });
-
-  if (pacienteEncontrado) {
-    // Captura o nome testando variações de maiúsculas/minúsculas da coluna
-    const nomeEncontrado = pacienteEncontrado['Nome completo'] || pacienteEncontrado['Nome Completo'] || pacienteEncontrado.Nome_completo;
-    
-    console.log("🎉 [TESTE LOG] Sucesso total! Nome encontrado:", nomeEncontrado);
-    setNomePaciente(nomeEncontrado);
-  } else {
-    console.warn("⚠️ [TESTE LOG] Os IDs não casaram na comparação direta. IDs disponíveis no banco:", 
-      todosPacientes.map(p => p['id_usuário'] || p['id_usuario'])
-    );
-  }
-
-          } else {
-            console.warn("⚠️ [TESTE LOG] A tabela retornou totalmente vazia do banco.");
-          }
-        } else {
-          console.warn("⚠️ [TESTE LOG] Nenhum ID encontrado no localStorage. Faça login primeiro!");
+        if (!idUsuarioLogado || !perfilUsuario) {
+          console.warn("⚠️ [TESTE LOG] Dados de sessão incompletos no localStorage. Faça login novamente.");
+          setCarregando(false);
+          return;
         }
+
+        // --- 2. DEFINIÇÃO DINÂMICA DA TABELA E DA COLUNA ---
+        // Se for médico, busca na 'Tabela médicos', se não, busca na 'Tabela pacientes'
+        const nomeTabela = perfilUsuario === 'medico' ? 'Tabela_medicos' : 'Tabela pacientes';
+        
+        // Ajuste aqui o nome da sua coluna de chave estrangeira (FK) para cada tabela
+        const colunaFiltro = 'id_usuario'; 
+
+        // --- 3. BUSCA INTELIGENTE NO SUPABASE ---
+        const { data: perfilEncontrado, error: dbError } = await supabase
+          .from(nomeTabela)   
+          .select('*')
+          .eq(colunaFiltro, idUsuarioLogado)
+          .maybeSingle(); // Traz apenas o registro correto do profissional ou paciente
+
+        if (dbError) {
+          console.error(`🚨 [TESTE LOG] Erro ao buscar na tabela [${nomeTabela}]:`, dbError.message);
+          setCarregando(false);
+          return;
+        }
+
+        // --- 4. MAPEAMENTO E TRATAMENTO DO RESULTADO ---
+        if (perfilEncontrado) {
+          // Captura o nome testando variações comuns (ajuste para bater com o nome das suas colunas se necessário)
+          const nomeEncontrado = 
+            perfilEncontrado['Nome completo'] || 
+            perfilEncontrado['Nome Completo'] || 
+            perfilEncontrado.Nome_completo ||
+            perfilEncontrado.nome; // Médicos às vezes usam apenas 'nome' na tabela, dependendo do seu padrão
+          
+          console.log(`🎉 [TESTE LOG] Sucesso! Dados carregados da [${nomeTabela}]:`, nomeEncontrado);
+          setNomePaciente(nomeEncontrado); // Você pode renomear o estado depois para algo mais genérico como 'nomeUsuario'
+        } else {
+          console.warn(`⚠️ [TESTE LOG] Nenhum vínculo encontrado na tabela [${nomeTabela}] para o ID de usuário: ${idUsuarioLogado}`);
+        }
+
       } catch (err) {
         console.error("💥 [TESTE LOG] Erro crítico no bloco JavaScript:", err);
-      }
-
-      // --- 2. GEOLOCALIZAÇÃO ---
-      if (!navigator.geolocation) {
+      } finally {
         setCarregando(false);
-        return;
       }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUrlMaps(`https://www.google.com/maps/search/?api=1&query=posto+de+saude+ubs&center=${latitude},${longitude}`);
-          setCarregando(false);
-        },
-        (error) => {
-          console.error("Erro de geolocalização:", error);
-          setErroLocalizacao(true);
-          setCarregando(false);
-        }
-      );
     };
 
     inicializarPagina();
@@ -493,36 +546,39 @@ const Meusdados = () => {
               />
             </div>
 
-            <div className="row">
-              {/* CAMPO TELEFONE */}
-              <div className="col-md-6 mb-3">
-                <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
-                  Telefone / Celular
-                </label>
-                <input
-                  type="text"
-                  className="form-control bg-light"
-                  id="formTelefone"
-                  value={telefone}
-                  readOnly
-                />
-              </div>
+           <div className="row g-3"> {/* Adicionado g-3 para um espaçamento mais elegante entre os campos */}
+  
+  {/* CAMPO TELEFONE */}
+  <div className="col-12 col-md-6 mb-3">
+    <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
+      Telefone / Celular
+    </label>
+    <input
+      type="text"
+      className="form-control bg-light"
+      id="formTelefone"
+      /* 🔑 Mantém o valor original, mas se ele for "Não encontrado", exibe o texto padrão amigável */
+      value={telefone || "Não encontrado"}
+      readOnly
+    />
+  </div>
 
-              {/* CAMPO DATA DE NASCIMENTO */}
-              <div className="col-md-6 mb-3">
-                <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
-                  Data de Nascimento
-                </label>
-                <input
-                  type="text"
-                  className="form-control bg-light"
-                  id="formDataNasc"
-                  value={dataNascimento}
-                  readOnly
-                />
-              </div>
-            </div>
-
+  {/* CAMPO DATA DE NASCIMENTO */}
+  <div className="col-12 col-md-6 mb-3">
+    <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
+      Data de Nascimento
+    </label>
+    <input
+      type="text"
+      className="form-control bg-light"
+      id="formDataNasc"
+      /* 🔑 Mantém a variável original viva, mas divide por '-' e inverte a ordem para exibir DD/MM/AAAA */
+      value={dataNascimento ? dataNascimento.split('-').reverse().join('/') : ""}
+      readOnly
+    />
+  </div>
+  
+</div>
             <hr className="my-4" />
 
             {/* AVISO DO SISTEMA */}
@@ -569,63 +625,89 @@ const Sobre = () => {
   }, []);
 
   return (
-    <div className="mt-4">
-      <h2>Dúvidas</h2>
-      <p>Informações sobre o projeto, utilidades do app e documentos necessários</p>
+   <div className="mt-5">
+  {/* Título da Seção mais refinado */}
+  <h2 className="fw-bold text-secondary mb-1">Dúvidas Frequentes</h2>
+  <p className="text-muted mb-4">Informações sobre o projeto, utilidades do app e documentos necessários.</p>
 
-      <h3>Documentos necessários para consultas</h3>
-      <div className="doc-need">
-        {carregando ? (
-          <div className="d-flex align-items-center text-muted">
-            <div className="spinner-border spinner-border-sm me-2" role="status"></div>
-            <span>Carregando documentos necessários...</span>
-          </div>
-        ) : documentos.length === 0 ? (
-          <p className="text-muted">Nenhum documento listado no momento.</p>
-        ) : (
-          <div className="list-group">
-            {documentos.map((doc) => (
-              <div key={doc.id_documento} className="list-group-item list-group-item-action mb-2 shadow-sm rounded border">
-                <h5 className="mb-1 text-primary">📌 {doc.nome_documento}</h5>
-                <p className="mb-1 text-muted small">
-                  {doc.descrição_documento || 'Sem descrição cadastrada.'}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+  {/* Card Informativo Blindado */}
+  <div className="card border-0 border-start border-primary border-4 shadow-sm bg-white p-4">
+    <div className="d-flex align-items-center mb-3">
+      {/* Ícone de documento para chamar a atenção visual */}
+      <span className="fs-3 me-2">📋</span>
+      <h5 className="card-title fw-bold text-primary mb-0">
+        Documentos necessários para consultas
+      </h5>
+    </div>
+    
+    <div className="card-text text-secondary lh-lg">
+      <p className="mb-2">
+        Para consultas regulares, é obrigatório apresentar um <strong>documento de identificação com foto</strong> e o <strong>cartão do SUS</strong>.
+      </p>
+      <div className="alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mt-3 mb-0 small">
+        <span>💡</span>
+        <span><strong>Atenção especialistas:</strong> Se a sua consulta for com algum especialista, não se esqueça de trazer também a sua <strong>guia de encaminhamento</strong>.</span>
       </div>
     </div>
+  </div>
+</div>
+      
   );
 };
 
 const Agendamentos = () => (
-  <div className="mt-4 text-center">
-    <h2>Meus Agendamentos</h2>
-    <p>Consulte suas consultas marcadas ou agende a próxima consulta</p>
+  <div className="mt-5 text-center">
+  {/* Título da Seção padronizado */}
+  <h2 className="fw-bold text-secondary mb-1">Meus Agendamentos</h2>
+  <p className="text-muted mb-4">Consulte seus compromissos marcados ou realize um novo agendamento na rede.</p>
+  
+  {/* Container responsivo: 1 coluna no mobile, 3 colunas em telas médias/grandes */}
+  <div className="row g-3 justify-content-center">
     
-    {/* 1. d-flex: define o modo flex
-      2. flex-column: empilha no mobile (padrão)
-      3. flex-md-row: muda para linha apenas em telas médias ou maiores (desktop)
-      4. align-items-center: centraliza verticalmente no modo coluna
-      5. gap-3: espaçamento entre botões
-    */}
-    <div className="d-flex flex-column flex-md-row align-items-center justify-content-center gap-3">
-      
+    {/* CARD 1: Consultas Marcadas */}
+    <div className="col-12 col-md-4">
       <Link to="/consultas-marcadas" style={{ textDecoration: 'none' }}>
-        <button type="button" className="btn btn-primary">Consultas Marcadas</button>
+        <button 
+          type="button" 
+          className="btn btn-outline-primary bg-white shadow-sm w-100 p-4 border-2 h-100 d-flex flex-column align-items-center justify-content-center gap-2 transition-card"
+        >
+          <span className="fs-1">🗓️</span>
+          <span className="fw-bold fs-5">Consultas Marcadas</span>
+          <small className="text-muted text-wrap d-block">Veja datas, horários e médicos dos seus agendamentos.</small>
+        </button>
       </Link>
-      
-      <Link to="/exames-marcados" style={{ textDecoration: 'none' }}>
-        <button type="button" className="btn btn-primary">Exames Marcados</button>
-      </Link>
-      
-      <Link to="/agendarconsultas" style={{ textDecoration: 'none' }}> 
-        <button type="button" className="btn btn-primary">Agendar consulta</button>
-      </Link>
-      
     </div>
+
+    {/* CARD 2: Exames Marcados */}
+    <div className="col-12 col-md-4">
+      <Link to="/exames-marcados" style={{ textDecoration: 'none' }}>
+        <button 
+          type="button" 
+          className="btn btn-outline-primary bg-white shadow-sm w-100 p-4 border-2 h-100 d-flex flex-column align-items-center justify-content-center gap-2 transition-card"
+        >
+          <span className="fs-1">🧪</span>
+          <span className="fw-bold fs-5">Exames Marcados</span>
+          <small className="text-muted text-wrap d-block">Consulte o local e o preparo dos seus exames agendados.</small>
+        </button>
+      </Link>
+    </div>
+
+    {/* CARD 3: Novo Agendamento (Destacado em Azul Sólido) */}
+    <div className="col-12 col-md-4">
+      <Link to="/agendarconsultas" style={{ textDecoration: 'none' }}>
+        <button 
+          type="button" 
+          className="btn btn-primary shadow-sm w-100 p-4 h-100 d-flex flex-column align-items-center justify-content-center gap-2"
+        >
+          <span className="fs-1">➕</span>
+          <span className="fw-bold fs-5 text-white">Agendar Consulta</span>
+          <small className="text-white text-opacity-75 text-wrap d-block">Marque um novo atendimento médico ou especialista.</small>
+        </button>
+      </Link>
+    </div>
+
   </div>
+</div>
 );
 
 // Configuração do calendário
@@ -755,7 +837,7 @@ const Agendarconsultas = () => {
         .insert([
           { 
             id_paciente: 1,      
-            id_médico: 1,        
+            id_medico: 1,        
             hora: horario,       
             dia: numDia,           
             mes: numMes,           
@@ -1072,48 +1154,123 @@ const ConsultaAgendada = () => {
 
 const FalarUBS = () => (
   <div className="mt-4">
-    <h2>Falar com a UBS</h2>
-    <p>Canais de atendimento e contato direto com a sua unidade.</p>
-    <p>Horário de 8 da manhã até 5 da tarde de segunda a sexta</p>
+
+
+     <div className="mt-5">
+  {/* Título da Seção mais refinado */}
+  <h2 className="fw-bold text-secondary mb-1">Falar com a UBS</h2>
+  <p className="text-muted mb-4">Informações sobre o projeto, utilidades do app e documentos necessários.</p>
+
+  {/* Card Informativo Blindado */}
+  <div className="card border-0 border-start border-primary border-4 shadow-sm bg-white p-4">
+    <div className="d-flex align-items-center mb-3">
+      {/* Ícone de documento para chamar a atenção visual */}
+      <span className="fs-3 me-2">📞</span>
+      <h5 className="card-title fw-bold text-primary mb-0">
+        Entre em contato conosco
+      </h5>
+    </div>
+    <div className="card-text text-secondary lh-lg">
+      <p className="mb-2"></p>
+        <p>Canais de atendimento e contato direto com a sua unidade.</p>
     <p>Telefone: 2233-4466</p>
     <p>Se preferir nos envie uma mensagem</p>
-    <a href='https://wa.me/5524988299581' target="_blank" rel="noopener noreferrer"><p>24988775544</p></a>
+    <a href='https://wa.me/5524988299581' target="_blank" rel="noopener noreferrer"><p>24988775544</p></a> 
+      <div className="alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mt-3 mb-0 small">
+        <span>💡</span>
+        <span><strong><p>Horário de 8 da manhã até 5 da tarde de segunda a sexta</p></strong>.</span>
+      </div>
+    </div>
+  </div>
+</div>
   </div>
 );
 
 const Historico = () => (
   <div className="mt-4">
-    <h2>Meu Histórico</h2>
-    <p>Histórico médico, receitas e atendimentos anteriores. Via API pelo SUS digital.</p>
+  {/* Título da Seção alinhado com o padrão anterior */}
+  <h2 className="fw-bold text-secondary mb-1">Meu Histórico</h2>
+  <p className="text-muted mb-4">Histórico médico, receitas e atendimentos anteriores. Via API pelo SUS digital.</p>
+
+  {/* Card de Histórico no Mesmo Padrão Visual (Identidade Verde para Prontuário) */}
+  <div className="card border-0 border-start border-success border-4 shadow-sm bg-white p-4">
+    <div className="d-flex align-items-center mb-3">
+      {/* Ícone de prontuário integrado */}
+      <span className="fs-3 me-2">🏥</span>
+      <h5 className="card-title fw-bold text-success mb-0">
+        Prontuário Integrado SUS Digital
+      </h5>
+    </div>
+    
+    <div className="card-text text-secondary lh-lg">
+      <p className="mb-2">
+        Seus dados de consultas recentes, exames realizados e receitas emitidas na rede pública são sincronizados automaticamente com a base nacional do <strong>SUS Digital</strong>.
+      </p>
+      
+      {/* Aviso de integração em tempo real */}
+      <div className="alert alert-success d-flex align-items-center gap-2 py-2 px-3 mt-3 mb-0 small border-0 bg-success bg-opacity-10 text-success-emphasis">
+        <span className="spinner-grow spinner-grow-sm text-success" role="status" aria-hidden="true"></span>
+        <span>Conexão ativa: Exibindo as últimas atualizações vinculadas ao seu <strong>CPF</strong>.</span>
+      </div>
+    </div>
   </div>
+</div>
 );
 
 const Vacinas = () => (
   <div className="mt-4">
-    <h2>Campanhas de Vacinação</h2>
-    <p>Confira o calendário de vacinas e campanhas atuais. De acordo com o SUS</p>
-    <div class="accordion" id="accordionPanelsStayOpenExample">
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="panelsStayOpen-headingOne">
-      <button class="accordion-button buttton-acordeon-tittle" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseOne" aria-expanded="true" aria-controls="panelsStayOpen-collapseOne">
-        Campanha Nacional de Vacinação contra a Influenza (Gripe)
-      </button>
-    </h2>
-    <div id="panelsStayOpen-collapseOne" class="accordion-collapse collapse show" aria-labelledby="panelsStayOpen-headingOne">
-      <div class="accordion-body">
-        <strong>Informações</strong> <br></br>
-        <i>Período Previsto/Realizado</i>
-        <p>Geralmente de Março a Junho (com início e prorrogações variando por região)</p>
-        <i>Público-Alvo Principal</i>
-        <p>Grupos prioritários (idosos, trabalhadores da saúde, gestantes, crianças, etc.), estendida posteriormente à população geral conforme disponibilidade.</p>
-        <i>Observações</i>
-        <p>Proteção anual contra as cepas mais comuns do vírus.</p>     
+  {/* Título da Seção no padrão dos anteriores */}
+  <h2 className="fw-bold text-secondary mb-1">Campanhas de Vacinação</h2>
+  <p className="text-muted mb-4">Confira o calendário de vacinas e campanhas atuais. De acordo com o SUS.</p>
+
+  {/* Accordion com sombra suave para combinar com os cards */}
+  <div className="accordion shadow-sm" id="accordionVacinas">
+    <div className="accordion-item border-light">
+      <h2 className="accordion-header" id="panelsStayOpen-headingOne">
+        <button 
+          className="accordion-button fw-bold text-primary bg-white" 
+          type="button" 
+          data-bs-toggle="collapse" 
+          data-bs-target="#panelsStayOpen-collapseOne" 
+          aria-expanded="true" 
+          aria-controls="panelsStayOpen-collapseOne"
+        >
+          💉 Campanha Nacional contra a Influenza (Gripe)
+        </button>
+      </h2>
+      
+      <div id="panelsStayOpen-collapseOne" className="accordion-collapse collapse show" aria-labelledby="panelsStayOpen-headingOne">
+        <div className="accordion-body text-secondary bg-white lh-lg">
+          
+          {/* Item 1: Período */}
+          <div className="mb-3">
+            <span className="badge bg-primary bg-opacity-10 text-primary mb-1 px-2 py-1">
+              📅 Período Estimado
+            </span>
+            <p className="mb-0 ps-1 text-dark">Geralmente de Março a Junho (com início e prorrogações variando por região).</p>
+          </div>
+
+          {/* Item 2: Público-Alvo */}
+          <div className="mb-3">
+            <span className="badge bg-success bg-opacity-10 text-success mb-1 px-2 py-1">
+              👥 Público-Alvo Principal
+            </span>
+            <p className="mb-0 ps-1 text-dark">Grupos prioritários (idosos, trabalhadores da saúde, gestantes, crianças, etc.), estendida posteriormente à população geral conforme a disponibilidade de doses.</p>
+          </div>
+
+          {/* Item 3: Observações */}
+          <div>
+            <span className="badge bg-secondary bg-opacity-10 text-secondary mb-1 px-2 py-1">
+              💡 Observações
+            </span>
+            <p className="mb-0 ps-1 text-muted small">Proteção anual atualizada contra as cepas mais comuns e recentes do vírus.</p>
+          </div>
+
+        </div>
       </div>
     </div>
   </div>
- 
 </div>
-  </div>
 );
 // Lembre-se de verificar os caminhos dos seus componentes importados aqui em cima, por exemplo:
 // import PaginaLogin from './PaginaLogin';
@@ -1131,43 +1288,74 @@ function ConteudoDoApp() {
     <>
       {/* A Navbar só será renderizada se NÃO for a página de login */}
       {!escondeNavbar && (
-        <nav className="navbar navbar-expand-md navbar-light bg-primary">
-          <div className="container-fluid">
-            
-            {/* Botão Hambúrguer - Só aparece no mobile por causa do navbar-expand-md */}
-            <button 
-              className="navbar-toggler mx-auto" 
-              type="button" 
-              data-bs-toggle="collapse" 
-              data-bs-target="#meuMenu"
-              aria-controls="meuMenu"
-              aria-expanded="false"
-              aria-label="Toggle navigation"
-            >
-              <span className="navbar-toggler-icon"></span>
-            </button>
+        <nav className="navbar navbar-expand-lg navbar-dark shadow-sm" style={{ backgroundColor: '#0B2545' }}>
+  <div className="container-fluid">
+    
+    {/* Botão Hambúrguer para Mobile ajustado para o modo dark */}
+    <button 
+      className="navbar-toggler" 
+      type="button" 
+      data-bs-toggle="collapse" 
+      data-bs-target="#meuMenu" 
+      aria-controls="meuMenu" 
+      aria-expanded="false" 
+      aria-label="Alternar navegação"
+    >
+      <span className="navbar-toggler-icon"></span>
+    </button>
 
-            <div className="collapse navbar-collapse" id="meuMenu">
-              <ul className="navbar-nav mx-auto"> 
-                <li className="nav-item">
-                  {/* AJUSTE: Link do perfil agora vai para /inicio */}
-                  <Link className="nav-link" to="/Meusdados">
-                    <img src="img/user.png" className="icon-profile" alt="Perfil" style={{width: '30px'}} />
-                  </Link>
-                </li>
-                {/* AJUSTE: Página principal agora aponta para /inicio */}
-                <li className="nav-item"><Link className="nav-link" to="/inicio">Página principal</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/sobre">Dúvidas</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/agendamentos">Agendamentos</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/falar-ubs">Falar com a UBS</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/historico">Meu histórico</Link></li>
-                <li className="nav-item"><Link className="nav-link" to="/vacinas">Campanhas de vacinações</Link></li>
-                {/* Opcional: Um botão para deslogar e voltar para a tela de login */}
-                <li className="nav-item"><Link className="nav-link text-white-50" to="/">Sair</Link></li>
-              </ul>
-            </div>
-          </div>
-        </nav>
+    <div className="collapse navbar-collapse" id="meuMenu">
+      {/* 🔑 ALTERADO: Adicionado 'align-items-center' para o ícone alinhar perfeitamente com os textos */}
+      <ul className="navbar-nav mx-auto align-items-center gap-2"> 
+        
+        {/* ÍCONE DE PERFIL */}
+        <li className="nav-item">
+          <Link className="nav-link p-1" to="/Meusdados" title="Meus Dados">
+            {/* 🔑 ALTERADO: Adicionado 'filter: invert(1)' caso sua imagem user.png seja preta, tornando-a branca */}
+            <img 
+              src="img/user.png" 
+              className="icon-profile" 
+              alt="Perfil" 
+              style={{ width: '30px', height: '30px', filter: 'brightness(0) invert(1)' }} 
+            />
+          </Link>
+        </li>
+        
+        {/* LINKS DO MENU (Todos herdando texto branco de alta visibilidade) */}
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/inicio">Página principal</Link>
+        </li>
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/sobre">Dúvidas</Link>
+        </li>
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/agendamentos">Agendamentos</Link>
+        </li>
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/falar-ubs">Falar com a UBS</Link>
+        </li>
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/historico">Meu histórico</Link>
+        </li>
+        <li className="nav-item">
+          <Link className="nav-link text-white fw-medium" to="/vacinas">Campanhas de vacinações</Link>
+        </li>
+        
+        {/* BOTÃO SAIR (Modificado para um estilo de etiqueta que salta aos olhos e mantém o contraste) */}
+        <li className="nav-item ms-md-3">
+          <Link 
+            className="nav-link btn btn-danger btn-sm text-white px-3 py-1 mt-2 mt-md-0 fw-bold" 
+            to="/"
+            style={{ minWidth: '70px' }}
+          >
+            Sair
+          </Link>
+        </li>
+
+      </ul>
+    </div>
+  </div>
+</nav>
       )}
 
       {/* Miolo do site onde os componentes de cada página são injetados */}
@@ -1188,7 +1376,14 @@ function ConteudoDoApp() {
           <Route path="/vacinas" element={<Vacinas />} />
           <Route path="/agendarconsultas" element={<Agendarconsultas />} />
           <Route path="/consulta-agendada" element={<ConsultaAgendada />} />
-          <Route path="/consultas-marcadas" element={<ConsultasMarcadas />} />
+          <Route 
+      path="/consultas-marcadas" 
+      element={
+        localStorage.getItem('perfil_usuario') === 'medico' 
+          ? <ConsultasMarcadasPorMedico /> 
+          : <ConsultasMarcadas />
+      } 
+    />
         </Routes>
       </main>
     </>
