@@ -901,7 +901,7 @@ const Agendarconsultas = () => {
         .from('Agendamentos')
         .insert([
           { 
-            id_paciente: idPacienteReal, // 🔑 Agora puxando o ID correto dinamicamente!
+            id_paciente: idPacienteReal, // puxando o ID correto dinamicamente!
             id_medico: 1,        
             hora: horario,       
             dia: numDia,           
@@ -910,7 +910,7 @@ const Agendarconsultas = () => {
             status: 'agendado'   
           }
         ])
-        .select('*'); // 🔑 Mantido para garantir que o Supabase retorne a linha inteira com o ID
+        .select('*'); 
 
       if (error) {
         console.error('Erro ao salvar no Supabase:', error.message);
@@ -919,7 +919,7 @@ const Agendarconsultas = () => {
       }
 
       if (data && data.length > 0) {
-        // 🔑 Mantendo sua correção de data[0].id_consulta
+       
         const idGerado = data[0].id_consulta; 
         console.log("🎉 Consulta criada com sucesso! ID:", idGerado);
         
@@ -1028,19 +1028,46 @@ const ConsultasMarcadas = () => {
   const [carregando, setCarregando] = useState(true);
 
   // Função adaptada para buscar o histórico de agendamentos
+  // Função adaptada para buscar o histórico de agendamentos com ID numérico real
   const carregarConsultasDoBanco = async () => {
     setCarregando(true);
     try {
+      // 1. Pega o UUID gerado no login (o mesmo usado na tela de agendamento)
+      const idUsuarioLogado = localStorage.getItem('id_usuario_logado'); 
+
+      if (!idUsuarioLogado) {
+        console.warn("Nenhum usuário logado encontrado no localStorage.");
+        setCarregando(false);
+        return;
+      }
+
+      // 2. Busca o ID numérico real na 'Tabela pacientes' correspondente ao UUID
+      const { data: dadosPaciente, error: erroPaciente } = await supabase
+        .from('Tabela pacientes')
+        .select('"Id paciente"') // Aspas duplas obrigatórias devido ao espaço no nome da coluna
+        .eq('id_usuario', idUsuarioLogado)
+        .maybeSingle();
+
+      if (erroPaciente || !dadosPaciente) {
+        console.error("❌ Erro ao buscar id do paciente para listagem:", erroPaciente?.message);
+        setCarregando(false);
+        return;
+      }
+
+      const idPacienteReal = dadosPaciente["Id paciente"];
+      console.log(`📋 Carregando consultas para o Paciente ID numérico: ${idPacienteReal}`);
+
+      // 3. Faz a busca no Supabase filtrando pelo ID numérico real encontrado
       const { data, error } = await supabase
-        .from('Agendamentos')
-        .select('*') // Busca todas as colunas (id_consulta, dia, mes, ano, hora, status, etc.)
-        .eq('id_paciente', 1) // Filtra pelas consultas do paciente logado (usando o ID 1 de teste)
-        .eq('status', 'agendado'); // Traz apenas as que não foram canceladas
+        .from('Agendamentos') 
+        .select('*') 
+        .eq('id_paciente', idPacienteReal) // 🔑 Agora a comparação numérica está correta!
+        .eq('status', 'agendado'); 
 
       if (error) {
         console.error("Erro ao buscar consultas marcadas:", error.message);
       } else if (data) {
-        setMinhasConsultas(data); // Guarda a lista de agendamentos no estado
+        setMinhasConsultas(data); 
       }
     } catch (err) {
       console.error("Erro crítico ao carregar histórico:", err);
@@ -1048,7 +1075,6 @@ const ConsultasMarcadas = () => {
       setCarregando(false);
     }
   };
-
   // Executa a busca AUTOMATICAMENTE assim que a tela abre
   useEffect(() => {
     carregarConsultasDoBanco();
@@ -1123,8 +1149,7 @@ const ConsultaAgendada = () => {
       const { error } = await supabase
         .from('Agendamentos')
         .update({ queixa_sintomas: sintomas })
-        .eq('id_consulta', idConsulta); // 🔑 CORREÇÃO AQUI: Mudado de 'id' para 'id_consulta' para bater com o seu banco!
-
+        .eq('id_consulta', idConsulta); 
       if (error) {
         console.error("🚨 Detalhes do erro no Supabase:", error.message);
         setStatusSintomas('erro');
