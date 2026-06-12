@@ -2,7 +2,10 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation 
 import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 
-
+import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
+const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ConsultasMarcadasPorMedico = () => {
   const [minhasConsultas, setMinhasConsultas] = useState([]);
@@ -42,23 +45,72 @@ const ConsultasMarcadasPorMedico = () => {
         return;
       }
 
-      // Captura o ID real do médico (ex: 1)
+      // Captura o ID real do médico
       const idMedicoReal = dadosMedico.id_medico;
       console.log("🎉 [DEBUG 2] Sucesso! O id_medico deste usuário é:", idMedicoReal);
 
-      // Passo 3: Buscar os agendamentos usando o ID direto do médico
-      // 🔔 NOTA: Se os dados não aparecerem na tabela, mude 'id_médico' para 'id_medico' (sem acento)
+      // Passo 3: Buscar os agendamentos diretos do médico
       const { data: consultas, error: erroAgendamentos } = await supabase
         .from('Agendamentos')
         .select('*')
-        .eq('id_médico', idMedicoReal) 
+        .eq('id_medico', idMedicoReal) 
         .eq('status', 'agendado');
 
       if (erroAgendamentos) {
         console.error("❌ [DEBUG ERRO] Falha ao buscar agendamentos:", erroAgendamentos.message);
-      } else if (consultas) {
-        console.log("🍏 [DEBUG 3] Consultas encontradas direto pelo ID:", consultas);
-        setMinhasConsultas(consultas);
+        setCarregando(false);
+        return;
+      }
+
+    // Passo 4: Buscar os nomes dos pacientes de forma combinada
+      if (consultas && consultas.length > 0) {
+        // Extrai os IDs de paciente válidos da lista de agendamentos
+        const idsPacientes = consultas.map(c => c.id_paciente).filter(Boolean);
+
+        // Busca na Tabela pacientes usando aspas duplas por causa do espaço no nome da coluna
+        const { data: pacientes, error: erroPacientes } = await supabase
+          .from('Tabela pacientes')
+          .select('"Id paciente", "Nome completo"')
+          .in('"Id paciente"', idsPacientes);
+
+        if (erroPacientes) {
+          console.error("❌ [DEBUG ERRO] Falha ao buscar nomes dos pacientes:", erroPacientes.message);
+          setMinhasConsultas(consultas);
+          return;
+        }
+
+        // 🔍 LOG DE INSPEÇÃO: Vamos ver exatamente como o Supabase está nomeando as propriedades
+        console.log("👀 [INSPEÇÃO] Dados brutos recebidos da tabela de pacientes:", pacientes);
+
+        // Cria o mapa de correspondência aceitando as duas variações de chave (com ou sem aspas litéricas)
+        const mapaPacientes = {};
+        if (pacientes) {
+          pacientes.forEach(p => {
+            // Tenta pegar o ID usando a propriedade com espaço puro ou com aspas embutidas
+            const idPacienteReal = p["Id paciente"] || p['"Id paciente"'] || p.id_paciente;
+            const nomeCompleto = p["Nome completo"] || p['"Nome completo"'];
+            
+            if (idPacienteReal) {
+              mapaPacientes[idPacienteReal] = nomeCompleto;
+            }
+          });
+        }
+
+        console.log("🗺️ [INSPEÇÃO] Mapa de pacientes gerado:", mapaPacientes);
+
+        // Injeta o nome tratado dentro de cada objeto de consulta
+        const consultasComNomes = consultas.map(consulta => {
+          console.log(`Checking ID: ${consulta.id_paciente} contra o mapa`, mapaPacientes[consulta.id_paciente]);
+          return {
+            ...consulta,
+            nome_paciente_tratado: mapaPacientes[consulta.id_paciente] || `Paciente #${consulta.id_paciente}`
+          };
+        });
+
+        console.log("🍏 [DEBUG 3] Consultas finais enviadas para o estado:", consultasComNomes);
+        setMinhasConsultas(consultasComNomes);
+      } else {
+        setMinhasConsultas([]);
       }
 
     } catch (err) {
@@ -68,7 +120,6 @@ const ConsultasMarcadasPorMedico = () => {
     }
   };
 
-  // 🔑 CORREÇÃO DO ERRO 2: Organização do Hook de inicialização
   useEffect(() => {
     carregarConsultasDoBanco();
   }, []);
@@ -105,7 +156,7 @@ const ConsultasMarcadasPorMedico = () => {
                   Horário: <strong className="text-primary">{consulta.hora}</strong>
                 </p>
                 
-                {/* Bloco de sintomas melhor estruturado */}
+                {/* Bloco de sintomas estruturado */}
                 <div className="bg-white p-2 rounded border small text-secondary mt-1">
                   <strong>Sintomas relatados:</strong> {consulta.queixa_sintomas || "Nenhum sintoma específico relatado."}
                 </div>
@@ -116,8 +167,10 @@ const ConsultasMarcadasPorMedico = () => {
                 <span className="badge bg-primary px-3 py-2 rounded-pill fs-7">
                   Status: {consulta.status}
                 </span>
-                <span className="badge bg-secondary bg-opacity-10 text-secondary border px-3 py-2 rounded-pill fs-7">
-                  Paciente ID: #{consulta.id_paciente}
+                
+                {/* 👤 Aqui aparece o nome completo do paciente mapeado no Passo 4 */}
+                <span className="badge bg-secondary bg-opacity-10 text-dark border px-3 py-2 rounded-pill fs-7 fw-bold">
+                  👤 Paciente: {consulta.nome_paciente_tratado}
                 </span>
               </div>
             </div>

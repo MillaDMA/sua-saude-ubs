@@ -9,9 +9,9 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
-
-import ConsultasMarcadasPorMedico from './pages/paginadocinterface';
-
+import ConsultasMarcadasPorMedico from './pages/DocSideConsultasMarcadas';
+import AgendaDoMedico from './pages/DocSideAgenda';
+import Treinamentos from './pages/DocSideTreimamentos';
 
 
 const PaginaLogin = () => {
@@ -272,17 +272,18 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 const PaginaPrincipal = () => {
   const [nomePaciente, setNomePaciente] = useState('');
   const [urlMaps, setUrlMaps] = useState('');
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(true); // Controla o carregamento inicial do Supabase
+  const [buscandoLocalizacao, setBuscandoLocalizacao] = useState(false); // Controla o clique do botão de GPS
   const [erroLocalizacao, setErroLocalizacao] = useState(false);
 
- useEffect(() => {
+  useEffect(() => {
     const inicializarPagina = async () => {
       setCarregando(true);
       
       try {
         // --- 1. BUSCA O ID E O PERFIL DO USUÁRIO VIA LOCALSTORAGE ---
         const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
-        const perfilUsuario = localStorage.getItem('perfil_usuario'); // 🔑 Pegamos o perfil salvo ('paciente' ou 'medico')
+        const perfilUsuario = localStorage.getItem('perfil_usuario'); 
         
         console.log(`🔍 [TESTE LOG] Usuário ID: ${idUsuarioLogado} | Perfil: ${perfilUsuario}`);
 
@@ -293,10 +294,7 @@ const PaginaPrincipal = () => {
         }
 
         // --- 2. DEFINIÇÃO DINÂMICA DA TABELA E DA COLUNA ---
-        // Se for médico, busca na 'Tabela médicos', se não, busca na 'Tabela pacientes'
         const nomeTabela = perfilUsuario === 'medico' ? 'Tabela_medicos' : 'Tabela pacientes';
-        
-        // Ajuste aqui o nome da sua coluna de chave estrangeira (FK) para cada tabela
         const colunaFiltro = 'id_usuario'; 
 
         // --- 3. BUSCA INTELIGENTE NO SUPABASE ---
@@ -304,7 +302,7 @@ const PaginaPrincipal = () => {
           .from(nomeTabela)   
           .select('*')
           .eq(colunaFiltro, idUsuarioLogado)
-          .maybeSingle(); // Traz apenas o registro correto do profissional ou paciente
+          .maybeSingle(); 
 
         if (dbError) {
           console.error(`🚨 [TESTE LOG] Erro ao buscar na tabela [${nomeTabela}]:`, dbError.message);
@@ -314,15 +312,14 @@ const PaginaPrincipal = () => {
 
         // --- 4. MAPEAMENTO E TRATAMENTO DO RESULTADO ---
         if (perfilEncontrado) {
-          // Captura o nome testando variações comuns (ajuste para bater com o nome das suas colunas se necessário)
           const nomeEncontrado = 
             perfilEncontrado['Nome completo'] || 
             perfilEncontrado['Nome Completo'] || 
             perfilEncontrado.Nome_completo ||
-            perfilEncontrado.nome; // Médicos às vezes usam apenas 'nome' na tabela, dependendo do seu padrão
+            perfilEncontrado.nome; 
           
           console.log(`🎉 [TESTE LOG] Sucesso! Dados carregados da [${nomeTabela}]:`, nomeEncontrado);
-          setNomePaciente(nomeEncontrado); // Você pode renomear o estado depois para algo mais genérico como 'nomeUsuario'
+          setNomePaciente(nomeEncontrado); 
         } else {
           console.warn(`⚠️ [TESTE LOG] Nenhum vínculo encontrado na tabela [${nomeTabela}] para o ID de usuário: ${idUsuarioLogado}`);
         }
@@ -336,6 +333,50 @@ const PaginaPrincipal = () => {
 
     inicializarPagina();
   }, []);
+
+  // --- NOVA FUNÇÃO: BUSCA UBS MAIS PRÓXIMA ---
+  const buscarUbsMaisProxima = () => {
+    setBuscandoLocalizacao(true);
+    setErroLocalizacao(false);
+
+    if (!navigator.geolocation) {
+      // Se o navegador não der suporte, abre o mapa com uma busca genérica por UBS
+      const urlGenerica = 'https://www.google.com/maps/search/UBS+mais+proxima/';
+      setUrlMaps(urlGenerica);
+      setBuscandoLocalizacao(false);
+      window.open(urlGenerica, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        // Cria a URL focada nas coordenadas exatas buscando UBS ao redor
+        const urlComCoordenadas = `https://www.google.com/maps/search/UBS/@${latitude},${longitude},14z`;
+        
+        setUrlMaps(urlComCoordenadas);
+        setBuscandoLocalizacao(false);
+        
+        // Abre imediatamente a aba com as UBSs próximas
+        window.open(urlComCoordenadas, '_blank', 'noopener,noreferrer');
+      },
+      (error) => {
+        console.error("Erro ao obter geolocalização:", error);
+        setErroLocalizacao(true);
+        setBuscandoLocalizacao(false);
+        
+        // Se der erro (ex: usuário negou o GPS), abre uma busca geral por proximidade estimada do IP
+        const urlAlternativa = 'https://www.google.com/maps/search/UBS+mais+proxima/';
+        window.open(urlAlternativa, '_blank', 'noopener,noreferrer');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 8000, // Espera até 8 segundos pela resposta do GPS
+        maximumAge: 0
+      }
+    );
+  };
+
   return (
     <div className="mt-4 home">
       <h2>Bem-vindo, <span className="text-primary">{nomePaciente || 'paciente'}</span>!!</h2>
@@ -384,38 +425,37 @@ const PaginaPrincipal = () => {
         </button>
       </div>
       
-      {/* SEÇÃO DO BOTÃO DE BUSCA DA UBS */}
+      {/* SEÇÃO DO BOTÃO DE BUSCA DA UBS MODIFICADA */}
       <div className="d-grid gap-2 button-search mt-4">
         <p className="text-center">Precisa de ajuda?</p>
         
-        {carregando ? (
+        {buscandoLocalizacao ? (
           <button className="btn btn-primary" type="button" disabled>
             <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
             Obtendo localização...
           </button>
         ) : erroLocalizacao ? (
-          <a 
-            href="https://www.google.com/maps/search/?api=1&query=posto+de+saude+ubs" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="btn btn-primary d-flex align-items-center justify-content-center"
+          <button 
+            type="button" 
+            onClick={buscarUbsMaisProxima}
+            className="btn btn-warning d-flex align-items-center justify-content-center"
           >
-            Postinho mais próximo
-          </a>
+            Erro ao obter GPS. Tentar novamente?
+          </button>
         ) : (
-          <a 
-            href={urlMaps} 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <button 
+            type="button" 
+            onClick={buscarUbsMaisProxima}
             className="btn btn-primary d-flex align-items-center justify-content-center"
           >
             Postinho mais próximo
-          </a>
+          </button>
         )}
       </div>
     </div>
   );
 };
+
 
 const Meusdados = () => {
   // Estados para armazenar os campos do formulário
@@ -824,19 +864,44 @@ const Agendarconsultas = () => {
     return {};
   };
 
-  // 🚀 FUNÇÃO ATUALIZADA: Cria a consulta e envia o ID para a tela de sintomas
+  
  const handleAgendarHorario = async (horario) => {
     const numDia = diaSelecionado.getDate();             
     const numMes = diaSelecionado.getMonth() + 1;         
     const numAno = diaSelecionado.getFullYear();         
 
     try {
-      // 1. Faz o insert forçando o retorno de todas as colunas da linha criada
+      // 1. Coleta o UUID do Auth gerado no login
+      const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+
+      if (!idUsuarioLogado) {
+        console.error("❌ [AGENDAMENTO] Nenhum usuário logado encontrado no localStorage.");
+        alert("Sua sessão expirou. Por favor, faça login novamente.");
+        return;
+      }
+
+      // 2. Busca o ID numérico real na 'Tabela pacientes' correspondente ao UUID
+      const { data: dadosPaciente, error: erroPaciente } = await supabase
+        .from('Tabela pacientes')
+        .select('"Id paciente"') // Aspas duplas obrigatórias devido ao espaço no nome da coluna
+        .eq('id_usuario', idUsuarioLogado)
+        .maybeSingle();
+
+      if (erroPaciente || !dadosPaciente) {
+        console.error("❌ [AGENDAMENTO] Erro ao buscar id do paciente:", erroPaciente?.message);
+        alert("Não foi possível identificar seu perfil de paciente para concluir o agendamento.");
+        return;
+      }
+
+      const idPacienteReal = dadosPaciente["Id paciente"];
+      console.log(`🎉 [AGENDAMENTO] Paciente identificado! Gravando consulta para o ID: ${idPacienteReal}`);
+
+      // 3. Faz o insert forçando o retorno de todas as colunas da linha criada
       const { data, error } = await supabase
         .from('Agendamentos')
         .insert([
           { 
-            id_paciente: 1,      
+            id_paciente: idPacienteReal, // 🔑 Agora puxando o ID correto dinamicamente!
             id_medico: 1,        
             hora: horario,       
             dia: numDia,           
@@ -845,7 +910,7 @@ const Agendarconsultas = () => {
             status: 'agendado'   
           }
         ])
-        .select('*'); // 🔑 Mudamos para '*' para garantir que o Supabase retorne a linha inteira com o ID
+        .select('*'); // 🔑 Mantido para garantir que o Supabase retorne a linha inteira com o ID
 
       if (error) {
         console.error('Erro ao salvar no Supabase:', error.message);
@@ -854,7 +919,7 @@ const Agendarconsultas = () => {
       }
 
       if (data && data.length > 0) {
-        // 🔑 CORREÇÃO AQUI: Mudado de data[0].id para data[0].id_consulta
+        // 🔑 Mantendo sua correção de data[0].id_consulta
         const idGerado = data[0].id_consulta; 
         console.log("🎉 Consulta criada com sucesso! ID:", idGerado);
         
@@ -869,7 +934,6 @@ const Agendarconsultas = () => {
         });
       
       } else {
-        // Se por algum motivo o banco inseriu mas o select veio vazio, buscamos o último inserido por segurança
         console.warn("⚠️ O banco não retornou o ID na hora. Redirecionando com verificação alternativa...");
         navigate('/consulta-agendada', {
           state: { 
@@ -957,7 +1021,6 @@ const Agendarconsultas = () => {
     </div>
   );
 };
-
 
 
 const ConsultasMarcadas = () => {
@@ -1272,12 +1335,7 @@ const Vacinas = () => (
   </div>
 </div>
 );
-// Lembre-se de verificar os caminhos dos seus componentes importados aqui em cima, por exemplo:
-// import PaginaLogin from './PaginaLogin';
-// import PaginaPrincipal from './PaginaPrincipal';
-// ... etc
 
-// Este componente serve para monitorar a rota atual e decidir se mostra o menu
 function ConteudoDoApp() {
   const location = useLocation();
 
@@ -1370,11 +1428,26 @@ function ConteudoDoApp() {
           {/* Suas outras rotas continuam iguaizinhas */}
           <Route path="/Meusdados" element={<Meusdados />} />
           <Route path="/sobre" element={<Sobre />} />
-          <Route path="/agendamentos" element={<Agendamentos />} />
+
+              <Route 
+      path="/agendamentos"
+      element={
+        localStorage.getItem('perfil_usuario') === 'medico' 
+          ? <AgendaDoMedico/> 
+          : <Agendamentos />
+      } 
+    />
           <Route path="/falar-ubs" element={<FalarUBS />} />
           <Route path="/historico" element={<Historico />} />
           <Route path="/vacinas" element={<Vacinas />} />
-          <Route path="/agendarconsultas" element={<Agendarconsultas />} />
+          <Route 
+            path="/agendarconsultas"
+            element={
+              localStorage.getItem('perfil_usuario') === 'medico' 
+                ? <Treinamentos />       // Médico vê Treinamentos
+                : <Agendarconsultas />    // Paciente vê Agendar Consultas
+            }
+          />
           <Route path="/consulta-agendada" element={<ConsultaAgendada />} />
           <Route 
       path="/consultas-marcadas" 
