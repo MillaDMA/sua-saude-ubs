@@ -118,4 +118,4 @@ const ExamesMarcados = () => {
   );
 };	
 
-export default ExamesMarcados;
+export default ExamesMarcados

@@ -14,7 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import HistoricoDeAtendimentos from './pages/HistoricoDeAtendimentos';
 import ServicoInterno from './pages/DocSideServicoInterno';
 import './App.css'; // Ou o nome do seu arquivo CSS
-import ExamesMarcados from './pages/PacExamesMarcados';
+
 
 
 // Configuração do Supabase (Ajuste as chaves se necessário)
