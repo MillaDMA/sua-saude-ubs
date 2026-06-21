@@ -182,3 +182,20 @@
     border-right-color: var(--border);
   }
 }
+
+.img-carousel {
+  height: 400px; /* Defina uma altura fixa que fique boa para você */
+}
+
+.img-carousel img {
+  height: 100%;
+  object-fit: cover; /* Isso garante que a imagem preencha o espaço sem deformar */
+  object-position: center; /* Mantém o foco da imagem no centro */
+}
+
+/* Ajuste para celulares (telas menores) */
+@media (max-width: 768px) {
+  .img-carousel {
+    height: 250px; /* Fica menor em celulares para não ocupar a tela toda */
+  }
+}

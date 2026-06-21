@@ -6,13 +6,344 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css'; 
-import { useState, useRef, useEffect } from 'react';
-import React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import ConsultasMarcadasPorMedico from './pages/DocSideConsultasMarcadas';
 import AgendaDoMedico from './pages/DocSideAgenda';
 import Treinamentos from './pages/DocSideTreimamentos';
+import { useState, useEffect, useRef } from 'react';
+import HistoricoDeAtendimentos from './pages/HistoricoDeAtendimentos';
+import ServicoInterno from './pages/DocSideServicoInterno';
+import './App.css'; // Ou o nome do seu arquivo CSS
 
+
+// Configuração do Supabase (Ajuste as chaves se necessário)
+const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
+const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true, // ISSO DAQUI garante que a sessão fique salva no navegador
+    autoRefreshToken: true,
+  }
+});
+
+
+const formatarNomeCompleto = (nome) => {
+  if (!nome) return '';
+  const conectores = ['de', 'da', 'do', 'das', 'dos', 'e'];
+
+  return nome
+    .toLowerCase()
+    .split(' ')
+    .filter(palavra => palavra !== '')
+    .map((palavra) => {
+      if (conectores.includes(palavra)) return palavra;
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    })
+    .join(' ');
+};
+
+const PaginaSingin = () => {
+  const navigate = useNavigate();
+
+  // 1. ESTADOS PARA CAPTURAR OS DADOS DO FORMULÁRIO
+  const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [dataNasc, setDataNasc] = useState(''); // Estado para a data
+  const [password, setPassword] = useState(''); 
+  
+  // ESTADOS PARA O ENDEREÇO
+  const [bairro, setBairro] = useState('');
+  const [rua, setRua] = useState('');
+  const [numero, setNumero] = useState('');
+
+  const [carregando, setCarregando] = useState(false);
+
+  // 2. FUNÇÃO QUE DISPARA AO SUBMITAR O FORMULÁRIO
+ // 2. FUNÇÃO QUE DISPARA AO SUBMITAR O FORMULÁRIO
+  const handleCadastro = async (e) => {
+    e.preventDefault();
+
+    if (!nome || !cpf || !password || !bairro || !rua || !numero || !telefone) {
+      alert("Por favor, preencha todos os campos obrigatórios, incluindo o telefone.");
+      return;
+    }
+
+    setCarregando(true);
+
+    try {
+      // =================================================================
+      // TRATAMENTO DOS DADOS: Nome e Telefone
+      // =================================================================
+      // Formata o nome para deixar as iniciais em Maiúsculo (Title Case)
+      const nomeFormatado = formatarNomeCompleto(nome);
+
+      // Remove tudo o que não for número do telefone (parênteses, espaços, traços)
+      const apenasNumeros = telefone.replace(/\D/g, '');
+
+      // Validação simples para garantir que tem pelo menos o DDD + número mínimo
+      if (apenasNumeros.length < 10) {
+        throw new Error("Por favor, insira um telefone válido com DDD.");
+      }
+
+      // Captura os 2 primeiros dígitos como DDD e o restante como o número do telefone
+      const dddExtraido = apenasNumeros.substring(0, 2);
+      const telefoneExtraido = apenasNumeros.substring(2);
+
+
+      // =================================================================
+      // ETAPA 1: Registrar o CPF e Senha na tabela "Usuarios"
+      // =================================================================
+      const { data: dadosUsuario, error: erroUsuario } = await supabase
+        .from('usuarios')
+        .insert([
+          {
+            Documento: cpf,
+            password: password,
+            perfil: 'paciente'
+          }
+        ])
+        .select('id')
+        .single();
+
+      if (erroUsuario) throw new Error(`Erro ao criar credenciais (Usuarios): ${erroUsuario.message}`);
+      
+      const idUsuarioGerado = dadosUsuario.id;
+
+
+      // =================================================================
+      // ETAPA 2: Salvar os dados detalhados na tabela "Tabela pacientes"
+      // =================================================================
+      const { error: erroPaciente } = await supabase
+        .from('Tabela pacientes')
+        .insert([
+          {
+            "id_usuario": idUsuarioGerado, 
+            "Nome completo": nomeFormatado, // Usando o nome transformado aqui!
+            "CPF": cpf,
+            "Bairro": bairro,
+            "Rua": rua,
+            "Número da casa": numero,
+            "data_nascimento": dataNasc
+          }
+        ]);
+
+      if (erroPaciente) throw new Error(`Erro ao salvar dados do paciente: ${erroPaciente.message}`);
+
+
+      // =================================================================
+      // ETAPA 3: Salvar o Telefone desmembrado na tabela "telefones"
+      // =================================================================
+      const { error: erroTelefone } = await supabase
+        .from('telefones') 
+        .insert([
+          {
+            "id_usuario": idUsuarioGerado, 
+            "ddd": dddExtraido,
+            "telefone": telefoneExtraido
+          }
+        ]);
+
+      if (erroTelefone) throw new Error(`Erro ao salvar telefone do paciente: ${erroTelefone.message}`);
+
+
+      // =================================================================
+      // ETAPA 4: Finalização e Redirecionamento
+      // =================================================================
+      alert("🎉 Cadastro realizado com sucesso! Você será redirecionado.");
+      navigate('/'); 
+
+    } catch (err) {
+      console.error("💥 Erro no processo de salvamento:", err);
+      
+      // Tratamento amigável para o caso de CPF duplicado
+      if (err.message && err.message.includes("usuarios_cpf_key")) {
+        alert("⚠️ Este CPF já está cadastrado no sistema!");
+      } else {
+        alert(err.message || "Falha ao realizar o cadastro. Tente novamente.");
+      }
+    } finally {
+      setCarregando(false);
+    }
+  };
+  return (
+    <div className="container mt-5" style={{ maxWidth: '600px' }}>
+      <div className="card shadow border-0 p-4 bg-white rounded">
+        <h3 className="fw-bold text-center text-primary mb-2">🔐 Cadastro de Novo Paciente</h3>
+        <p className="text-muted text-center mb-4">Crie sua conta para agendar e visualizar suas consultas.</p>
+
+        <form onSubmit={handleCadastro}>
+          {/* CAMPO NOME */}
+          <div className="mb-3">
+            <label htmlFor="formNome" className="form-label fw-bold text-secondary">
+              Nome Completo
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="formNome"
+              placeholder="Digite seu nome completo"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              disabled={carregando}
+              required
+            />
+          </div>
+
+          {/* CAMPO CPF */}
+          <div className="mb-3">
+            <label htmlFor="formCpf" className="form-label fw-bold text-secondary">
+              CPF (Será seu documento de acesso)
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="formCpf"
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
+              disabled={carregando}
+              required
+            />
+          </div>
+
+          {/* NOVA LINHA: TELEFONE E NASCIMENTO */}
+          <div className="row g-3">
+            {/* CAMPO TELEFONE */}
+            <div className="col-12 col-md-6 mb-3">
+              <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
+                Telefone / Celular
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="formTelefone"
+                placeholder="(00) 00000-0000"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                disabled={carregando}
+              />
+            </div>
+
+            {/* CAMPO DATA DE NASCIMENTO */}
+            <div className="col-12 col-md-6 mb-3">
+              <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
+                Data de Nascimento
+              </label>
+              <input
+                type="date"
+                className="form-control"
+                id="formDataNasc"
+                value={dataNasc}
+                onChange={(e) => setDataNasc(e.target.value)}
+                disabled={carregando}
+              />
+            </div>
+          </div>
+
+          {/* ====== NOVA SEÇÃO RESIDENCIAL ADICIONADA ====== */}
+          <div className="border p-3 rounded mb-3 bg-light text-start">
+            <p className="fw-bold text-primary mb-2">📍 Endereço Residencial</p>
+            
+            {/* LINHA PARA RUA E NÚMERO */}
+            <div className="row g-2 mb-2">
+              <div className="col-8">
+                <label htmlFor="formRua" className="form-label small fw-bold text-secondary mb-1">Rua / Logradouro</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="formRua"
+                  placeholder="Ex: Av. Principal"
+                  value={rua}
+                  onChange={(e) => setRua(e.target.value)}
+                  disabled={carregando}
+                  required
+                />
+              </div>
+              <div className="col-4">
+                <label htmlFor="formNumero" className="form-label small fw-bold text-secondary mb-1">Número</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="formNumero"
+                  placeholder="Ex: 123"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                  disabled={carregando}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* CAMPO BAIRRO */}
+            <div className="mb-1">
+              <label htmlFor="formBairro" className="form-label small fw-bold text-secondary mb-1">Bairro</label>
+              <input
+                type="text"
+                className="form-control"
+                id="formBairro"
+                placeholder="Digite o seu bairro"
+                value={bairro}
+                onChange={(e) => setBairro(e.target.value)}
+                disabled={carregando}
+                required
+              />
+            </div>
+          </div>
+          {/* ============================================== */}
+
+          {/* CAMPO SENHA */}
+          <div className="mb-3">
+            <label htmlFor="formPassword" className="form-label fw-bold text-secondary">
+              Crie uma Senha de Acesso
+            </label>
+            <input
+              type="password"
+              className="form-control"
+              id="formPassword"
+              placeholder="Digite uma senha numérica ou textual"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={carregando}
+              required
+            />
+          </div>
+
+          {/* BOTÕES DE AÇÃO */}
+          <div className="d-grid gap-2 mt-4">
+            <button 
+              type="submit" 
+              className="btn btn-primary fw-bold" 
+              disabled={carregando}
+            >
+              {carregando ? "Processando cadastro..." : "Concluir Cadastro"}
+            </button>
+            <button 
+              type="button" 
+              className="btn btn-light border text-secondary btn-sm"
+              onClick={() => navigate('/')} 
+              disabled={carregando}
+            >
+              Já tenho cadastro (Fazer Login)
+            </button>
+          </div>
+
+          <hr className="my-4" />
+
+          {/* AVISO DO SISTEMA */}
+          <div className="text-center">
+            <span className="badge bg-secondary p-2 small">
+              🔒 Dados protegidos pela recepção da UBS
+            </span>
+            <p className="text-muted small mt-2">
+              Para alterar qualquer informação cadastrada posteriormente, por favor, compareça à sua UBS portando um documento oficial com foto.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const PaginaLogin = () => {
   const navigate = useNavigate();
@@ -236,17 +567,17 @@ const PaginaLogin = () => {
   <hr />
 
   <div className="text-center" style={{ width: '100%' }}>
-    <p className="small text-muted mb-2">Novo por aqui? Clique no botão abaixo para se cadastrar</p>
-    <button 
-      type="button" 
-      className="btn btn-outline-secondary btn-sm w-100"
-      onClick={() => alert('Tela de cadastro em desenvolvimento!')}
-      disabled={carregando}
-      style={{ width: '100%', boxSizing: 'border-box' }}
-    >
-      Criar uma Conta
-    </button>
-  </div>
+  <p className="small text-muted mb-2">Novo por aqui? Clique no botão abaixo para se cadastrar</p>
+  <button 
+    type="button" 
+    className="btn btn-outline-secondary btn-sm w-100"
+    onClick={() => navigate('/cadastro')} // Agora ele redireciona em vez de abrir o alert
+    disabled={carregando}
+    style={{ width: '100%', boxSizing: 'border-box' }}
+  >
+    Criar uma Conta
+  </button>
+</div>
 </div>
             
           </div>
@@ -259,15 +590,7 @@ const PaginaLogin = () => {
 
 // Informações do Supabase
 
-const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
-const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true, // 🔑 ISSO DAQUI garante que a sessão fique salva no navegador
-    autoRefreshToken: true,
-  }
-});
 
 const PaginaPrincipal = () => {
   const [nomePaciente, setNomePaciente] = useState('');
@@ -864,90 +1187,144 @@ const Agendarconsultas = () => {
     return {};
   };
 
-  
- const handleAgendarHorario = async (horario) => {
-    const numDia = diaSelecionado.getDate();             
-    const numMes = diaSelecionado.getMonth() + 1;         
-    const numAno = diaSelecionado.getFullYear();         
+
+const encontrarMedicoParaAgendamento = async (numDiaSemana, horario, numDia, numMes, numAno) => {
+  try {
+    // 1. Padronização segura do horário
+    const horarioFormatado = horario.length === 5 ? `${horario}:00` : horario;
+    
+    console.log("--- INÍCIO DA BUSCA ---");
+    console.log("Parâmetros:", { numDiaSemana, horarioFormatado, numDia, numMes, numAno });
+
+    // 2. BUSCA DE ESCALA (Com tratamento para possível erro de formato)
+    const { data: escalados, error: erroEscala } = await supabase
+      .from('Tabela_escala_equipe_ubs')
+      .select('id_medico, hora_inicio, hora_fim') // Selecionamos horas para depuração
+      .eq('dia_semana', numDiaSemana)
+      .lte('hora_inicio', horarioFormatado)
+      .gte('hora_fim', horarioFormatado);
+
+    if (erroEscala) throw erroEscala;
+    
+    console.log("Médicos encontrados na escala:", escalados);
+    
+    // Se não encontrou, tentamos diagnosticar o motivo
+    if (!escalados || escalados.length === 0) {
+      console.warn("Nenhum médico encontrado. Verifique se o dia_semana no banco é o mesmo que:", numDiaSemana);
+      return null;
+    }
+
+    const idsEscalados = escalados.map(e => e.id_medico);
+
+    // 3. CONSULTA DE AGENDAMENTOS (Usando .select('id_medico') otimizado)
+    const { data: jaMarcados, error: erroAgendamentos } = await supabase
+      .from('Agendamentos')
+      .select('id_medico')
+      .in('id_medico', idsEscalados)
+      .eq('dia', numDia)
+      .eq('mes', numMes)
+      .eq('ano', numAno)
+      .eq('hora', horario);
+
+    if (erroAgendamentos) throw erroAgendamentos;
+
+    // 4. LÓGICA DE RODÍZIO (Balanceamento de carga)
+    const ocupacao = idsEscalados.map(id => {
+      const total = jaMarcados 
+        ? jaMarcados.filter(consulta => consulta.id_medico === id).length 
+        : 0;
+      return { id_medico: id, total };
+    });
+
+    // Ordena pelo total de agendamentos (menor para maior)
+    ocupacao.sort((a, b) => a.total - b.total);
+    
+    const medicoEscolhido = ocupacao[0].id_medico;
+    console.log("Médico selecionado para o rodízio:", medicoEscolhido);
+    
+    return medicoEscolhido;
+
+  } catch (err) {
+    console.error("Erro crítico no processo de rodízio:", err);
+    return null;
+  }
+};
+
+  // --- 2. Agora o handleAgendarHorario consegue chamar a função acima ---
+  const handleAgendarHorario = async (horario) => {
+    const numDia = diaSelecionado.getDate();
+    const numMes = diaSelecionado.getMonth() + 1;
+    const numAno = diaSelecionado.getFullYear();
+    const diaSemana = diaSelecionado.getDay();
 
     try {
-      // 1. Coleta o UUID do Auth gerado no login
-      const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+  // 1. Verificação de sessão
+  const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+  if (!idUsuarioLogado) {
+    alert("Sua sessão expirou. Faça login novamente.");
+    return;
+  }
 
-      if (!idUsuarioLogado) {
-        console.error("❌ [AGENDAMENTO] Nenhum usuário logado encontrado no localStorage.");
-        alert("Sua sessão expirou. Por favor, faça login novamente.");
-        return;
+  // 2. Busca do ID do paciente no banco
+  const { data: dadosPaciente, error: erroPaciente } = await supabase
+    .from('Tabela pacientes')
+    .select('"Id paciente"')
+    .eq('id_usuario', idUsuarioLogado)
+    .maybeSingle();
+
+  if (erroPaciente || !dadosPaciente) {
+    alert("Não foi possível identificar seu perfil de paciente.");
+    return;
+  }
+
+  // CORREÇÃO: Extração segura do ID do paciente
+  const idPacienteReal = dadosPaciente["Id paciente"];
+
+  // 3. Busca do médico via rodízio automático
+  const idMedicoEscolhido = await encontrarMedicoParaAgendamento(diaSemana, horario, numDia, numMes, numAno);
+
+  if (!idMedicoEscolhido) {
+    alert("Não há médicos escalados disponíveis para este horário.");
+    return;
+  }
+
+  // 4. Inserção do novo agendamento
+  const { data, error } = await supabase
+    .from('Agendamentos')
+    .insert([
+      { 
+        id_paciente: idPacienteReal, 
+        id_medico: idMedicoEscolhido,
+        hora: horario,       
+        dia: numDia,        
+        mes: numMes,        
+        ano: numAno,        
+        status: 'agendado'   
       }
+    ])
+    .select('*'); 
 
-      // 2. Busca o ID numérico real na 'Tabela pacientes' correspondente ao UUID
-      const { data: dadosPaciente, error: erroPaciente } = await supabase
-        .from('Tabela pacientes')
-        .select('"Id paciente"') // Aspas duplas obrigatórias devido ao espaço no nome da coluna
-        .eq('id_usuario', idUsuarioLogado)
-        .maybeSingle();
+  if (error) throw error;
 
-      if (erroPaciente || !dadosPaciente) {
-        console.error("❌ [AGENDAMENTO] Erro ao buscar id do paciente:", erroPaciente?.message);
-        alert("Não foi possível identificar seu perfil de paciente para concluir o agendamento.");
-        return;
-      }
-
-      const idPacienteReal = dadosPaciente["Id paciente"];
-      console.log(`🎉 [AGENDAMENTO] Paciente identificado! Gravando consulta para o ID: ${idPacienteReal}`);
-
-      // 3. Faz o insert forçando o retorno de todas as colunas da linha criada
-      const { data, error } = await supabase
-        .from('Agendamentos')
-        .insert([
-          { 
-            id_paciente: idPacienteReal, // 🔑 Agora puxando o ID correto dinamicamente!
-            id_medico: 1,        
-            hora: horario,       
-            dia: numDia,           
-            mes: numMes,           
-            ano: numAno,           
-            status: 'agendado'   
-          }
-        ])
-        .select('*'); // 🔑 Mantido para garantir que o Supabase retorne a linha inteira com o ID
-
-      if (error) {
-        console.error('Erro ao salvar no Supabase:', error.message);
-        alert(`Não foi possível agendar: ${error.message}`);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        // 🔑 Mantendo sua correção de data[0].id_consulta
-        const idGerado = data[0].id_consulta; 
-        console.log("🎉 Consulta criada com sucesso! ID:", idGerado);
-        
-        localStorage.setItem('ultimo_id_consulta', idGerado);
-        
-        navigate('/consulta-agendada', {
-          state: { 
-            diaExibicao: diaSelecionado.toLocaleDateString('pt-BR'), 
-            horario: horario,
-            idConsulta: idGerado 
-          }
-        });
-      
-      } else {
-        console.warn("⚠️ O banco não retornou o ID na hora. Redirecionando com verificação alternativa...");
-        navigate('/consulta-agendada', {
-          state: { 
-            diaExibicao: diaSelecionado.toLocaleDateString('pt-BR'), 
-            horario: horario
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Erro crítico no processo de agendamento:', err);
-      alert('Erro de conexão ao tentar agendar.');
+  // 5. Finalização e redirecionamento
+  const idGerado = data[0]?.id_consulta;
+  if (idGerado) {
+    localStorage.setItem('ultimo_id_consulta', idGerado);
+  }
+  
+  navigate('/consulta-agendada', {
+    state: { 
+      diaExibicao: diaSelecionado.toLocaleDateString('pt-BR'), 
+      horario: horario,
+      idConsulta: idGerado 
     }
-  };
+  });
 
+} catch (err) {
+  console.error('Erro crítico no processo de agendamento:', err);
+  alert('Erro ao tentar agendar: ' + (err.message || "Tente novamente mais tarde."));
+}
+};
   return (
     <div className="mt-4">
       <h2>Escolha o dia da semana onde você deseja agendar sua consulta</h2>
@@ -1027,25 +1404,73 @@ const ConsultasMarcadas = () => {
   const [minhasConsultas, setMinhasConsultas] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Função adaptada para buscar o histórico de agendamentos
+  // 1. Busca os agendamentos ativos vinculados ao paciente logado
   const carregarConsultasDoBanco = async () => {
     setCarregando(true);
     try {
+      // Pega o UUID gerado no login (o mesmo usado na tela de agendamento)
+      const idUsuarioLogado = localStorage.getItem('id_usuario_logado'); 
+
+      if (!idUsuarioLogado) {
+        console.warn("Nenhum usuário logado encontrado no localStorage.");
+        return;
+      }
+
+      // Busca o ID numérico real na 'Tabela pacientes' correspondente ao UUID
+      const { data: dadosPaciente, error: erroPaciente } = await supabase
+        .from('Tabela pacientes')
+        .select('"Id paciente"') // Aspas duplas devido ao espaço no nome da coluna
+        .eq('id_usuario', idUsuarioLogado)
+        .maybeSingle();
+
+      if (erroPaciente || !dadosPaciente) {
+        console.error("❌ Erro ao buscar id do paciente para listagem:", erroPaciente?.message);
+        return;
+      }
+
+      const idPacienteReal = dadosPaciente["Id paciente"];
+      console.log(`📋 Carregando consultas para o Paciente ID numérico: ${idPacienteReal}`);
+
+      // Faz a busca no Supabase filtrando pelo ID numérico real encontrado
       const { data, error } = await supabase
-        .from('Agendamentos')
-        .select('*') // Busca todas as colunas (id_consulta, dia, mes, ano, hora, status, etc.)
-        .eq('id_paciente', 1) // Filtra pelas consultas do paciente logado (usando o ID 1 de teste)
-        .eq('status', 'agendado'); // Traz apenas as que não foram canceladas
+        .from('Agendamentos') 
+        .select('*') 
+        .eq('id_paciente', idPacienteReal)
+        .eq('status', 'agendado'); 
 
       if (error) {
         console.error("Erro ao buscar consultas marcadas:", error.message);
       } else if (data) {
-        setMinhasConsultas(data); // Guarda a lista de agendamentos no estado
+        // Ordena por horário/data se necessário
+        setMinhasConsultas(data); 
       }
     } catch (err) {
       console.error("Erro crítico ao carregar histórico:", err);
     } finally {
       setCarregando(false);
+    }
+  };
+
+  // 2. Função para o paciente cancelar o agendamento diretamente na sua tela
+  const handleCancelarConsulta = async (idConsulta) => {
+    const confirmar = window.confirm("Tem certeza que deseja cancelar esta consulta?");
+    if (!confirmar) return;
+
+    try {
+      const { error } = await supabase
+        .from('Agendamentos')
+        .update({ status: 'cancelado' })
+        .eq('id_consulta', idConsulta);
+
+      if (error) throw new Error(error.message);
+
+      alert("❌ Consulta cancelada com sucesso!");
+      
+      // Atualiza a lista na tela para fazer o agendamento sumir
+      carregarConsultasDoBanco(); 
+    } catch (err) {
+      console.error("Erro ao cancelar consulta:", err);
+      alert("Falha ao cancelar a consulta.");
     }
   };
 
@@ -1068,10 +1493,13 @@ const ConsultasMarcadas = () => {
           Você não tem nenhuma consulta marcada no momento.
         </div>
       ) : (
-        /* Lista os agendamentos encontrados em formato de lista/cards */
+        /* Lista os agendamentos encontrados em formato de cards */
         <div className="list-group">
           {minhasConsultas.map((consulta) => (
-            <div key={consulta.id_consulta || `${consulta.dia}-${consulta.hora}`} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center mb-2 shadow-sm rounded border">
+            <div 
+              key={consulta.id_consulta || `${consulta.dia}-${consulta.hora}`} 
+              className="list-group-item list-group-item-action d-flex justify-content-between align-items-center mb-2 shadow-sm rounded border p-3"
+            >
               <div>
                 <h5 className="mb-1 text-success">✔️ Consulta Confirmada</h5>
                 <p className="mb-1 text-muted">
@@ -1079,7 +1507,18 @@ const ConsultasMarcadas = () => {
                 </p>
                 <small>Horário: <strong className="text-primary">{consulta.hora}</strong></small>
               </div>
-              <span className="badge bg-primary rounded-pill p-2">Status: {consulta.status}</span>
+              
+              {/* Lado Direito: Status e Ação de Cancelamento */}
+              <div className="d-flex flex-column align-items-end gap-2">
+                <span className="badge bg-primary rounded-pill p-2">Status: {consulta.status}</span>
+                <button 
+                  type="button" 
+                  className="btn btn-outline-danger btn-sm fw-bold mt-1"
+                  onClick={() => handleCancelarConsulta(consulta.id_consulta)}
+                >
+                  ❌ Cancelar Consulta
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1093,7 +1532,6 @@ const ConsultaAgendada = () => {
   const diaExibicao = location.state?.diaExibicao || 'X';
   const horario = location.state?.horario || 'Y';
   
-  // 🔑 CAPTURA INTELIGENTE DO ID: 
   // Tenta pegar da navegação. Se não achar, pega o que salvamos no localStorage!
   const idConsulta = location.state?.idConsulta || localStorage.getItem('ultimo_id_consulta');
 
@@ -1123,8 +1561,7 @@ const ConsultaAgendada = () => {
       const { error } = await supabase
         .from('Agendamentos')
         .update({ queixa_sintomas: sintomas })
-        .eq('id_consulta', idConsulta); // 🔑 CORREÇÃO AQUI: Mudado de 'id' para 'id_consulta' para bater com o seu banco!
-
+        .eq('id_consulta', idConsulta); 
       if (error) {
         console.error("🚨 Detalhes do erro no Supabase:", error.message);
         setStatusSintomas('erro');
@@ -1215,6 +1652,98 @@ const ConsultaAgendada = () => {
   );
 };
 
+
+const ExamesMarcados = () => {
+  const [exames, setExames] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchExames = async () => {
+      const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+      if (!idUsuarioLogado) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Busca o ID do paciente
+        const { data: paciente, error: errPaciente } = await supabase
+          .from('Tabela pacientes')
+          .select('"Id paciente"')
+          .eq('id_usuario', idUsuarioLogado)
+          .maybeSingle();
+
+        if (errPaciente || !paciente) throw new Error("Paciente não encontrado");
+
+        const idPacienteReal = paciente["Id paciente"];
+
+        // 2. Busca os agendamentos (corrigido o nome do join)
+        const { data, error } = await supabase
+          .from('Agendamentos')
+          .select(`
+            exames_requisitados, 
+            dia, mes, ano,
+            Tabela_medicos ("Nome completo") 
+          `)
+          .eq('id_paciente', idPacienteReal)
+          .not('exames_requisitados', 'is', null);
+
+        if (error) throw error;
+        setExames(data || []);
+      } catch (err) {
+        console.error("Erro ao buscar dados:", err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExames();
+  }, []);
+
+  return (
+    <div className="container mt-4">
+      <h2>Meus Exames Marcados</h2>
+      {loading ? <p>Carregando...</p> : (
+        <div className="row">
+          {exames.length > 0 ? (
+            exames.map((item, index) => {
+              // Extração segura do nome do exame (JSONB)
+              const nomeExame = item.exames_requisitados?.nome || "Exame Requisitado";
+              
+              // Acesso correto ao nome do médico via join
+              const nomeMedico = item.Tabela_medicos?.["Nome completo"] || "Não informado";
+              
+              // Montagem manual da data para evitar "Invalid Date"
+              const dataFormatada = (item.dia && item.mes && item.ano) 
+                ? `${item.dia}/${item.mes}/${item.ano}` 
+                : "Data não definida";
+
+              return (
+                <div className="col-md-4 mb-3" key={index}>
+                  <div className="card h-100 shadow-sm">
+                    <div className="card-body">
+                      <h5 className="card-title text-primary">{nomeExame}</h5>
+                      <p className="card-text mb-1">
+                        <strong>Médico:</strong> {nomeMedico}
+                      </p>
+                      <p className="card-text">
+                        <small className="text-muted">Pedido em: {dataFormatada}</small>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-12">
+              <p className="text-muted">Você não possui exames requisitados no momento.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 const FalarUBS = () => (
   <div className="mt-4">
 
@@ -1363,13 +1892,12 @@ function ConteudoDoApp() {
     </button>
 
     <div className="collapse navbar-collapse" id="meuMenu">
-      {/* 🔑 ALTERADO: Adicionado 'align-items-center' para o ícone alinhar perfeitamente com os textos */}
+  
       <ul className="navbar-nav mx-auto align-items-center gap-2"> 
         
         {/* ÍCONE DE PERFIL */}
         <li className="nav-item">
           <Link className="nav-link p-1" to="/Meusdados" title="Meus Dados">
-            {/* 🔑 ALTERADO: Adicionado 'filter: invert(1)' caso sua imagem user.png seja preta, tornando-a branca */}
             <img 
               src="img/user.png" 
               className="icon-profile" 
@@ -1398,8 +1926,6 @@ function ConteudoDoApp() {
         <li className="nav-item">
           <Link className="nav-link text-white fw-medium" to="/vacinas">Campanhas de vacinações</Link>
         </li>
-        
-        {/* BOTÃO SAIR (Modificado para um estilo de etiqueta que salta aos olhos e mantém o contraste) */}
         <li className="nav-item ms-md-3">
           <Link 
             className="nav-link btn btn-danger btn-sm text-white px-3 py-1 mt-2 mt-md-0 fw-bold" 
@@ -1421,6 +1947,7 @@ function ConteudoDoApp() {
         <Routes>
           {/* Rota raiz '/' agora é estritamente a sua nova página de login */}
           <Route path="/" element={<PaginaLogin />} />
+          <Route path="/cadastro" element={<PaginaSingin />} />
           
           {/* A Página Principal mudou para '/inicio' para o Menu não aparecer no Login */}
           <Route path="/inicio" element={<PaginaPrincipal />} />
@@ -1438,8 +1965,12 @@ function ConteudoDoApp() {
       } 
     />
           <Route path="/falar-ubs" element={<FalarUBS />} />
-          <Route path="/historico" element={<Historico />} />
-          <Route path="/vacinas" element={<Vacinas />} />
+          <Route path="/vacinas" element={<Vacinas/>} />
+          <Route path="/historico" element={
+              localStorage.getItem('perfil_usuario') === 'medico' 
+                ? <HistoricoDeAtendimentos />       // Médico consultas realizadas
+                : <Historico/>    // Paciente vê seu histórico do SUS
+            }/>
           <Route 
             path="/agendarconsultas"
             element={
@@ -1457,6 +1988,10 @@ function ConteudoDoApp() {
           : <ConsultasMarcadas />
       } 
     />
+    <Route path="/exames-marcados" element={localStorage.getItem('perfil_usuario') === 'medico' 
+          ? <ServicoInterno /> 
+          : <ExamesMarcados />} />
+    
         </Routes>
       </main>
     </>

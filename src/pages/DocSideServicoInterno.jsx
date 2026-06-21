@@ -10,11 +10,11 @@ import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const Treinamentos = () => (
+const ServicoInterno = () => (
   <div className="mt-4">
   {/* Título da Seção alinhado com o padrão anterior */}
-  <h2 className="fw-bold text-secondary mb-1">Treinamentos</h2>
-  <p className="text-muted mb-4">Aqui ficam as informações sobre palestras e novas diretrizes.</p>
+  <h2 className="fw-bold text-secondary mb-1">Serviço interno</h2>
+  <p className="text-muted mb-4">Aqui ficam as informações sobre tarefas que não envolvem consultas</p>
 
   {/* Card de Histórico no Mesmo Padrão Visual (Identidade Verde para Prontuário) */}
   <div className="card border-0 border-start border-success border-4 shadow-sm bg-white p-4">
@@ -22,13 +22,13 @@ const Treinamentos = () => (
       {/* Ícone de prontuário integrado */}
       <span className="fs-3 me-2">🏥</span>
       <h5 className="card-title fw-bold text-success mb-0">
-        Eventos
+        Diversos
       </h5>
     </div>
     
     <div className="card-text text-secondary lh-lg">
       <p className="mb-2">
-        Atas de reuniões participadas também ficam aqui <strong>Consulte</strong>.
+        Mais informações<strong>Consulte</strong>.
       </p>
       
       {/* Aviso de integração em tempo real */}
@@ -41,4 +41,4 @@ const Treinamentos = () => (
 </div>
 );
 
-export default Treinamentos;
+export default ServicoInterno;
