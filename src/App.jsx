@@ -14,7 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import HistoricoDeAtendimentos from './pages/HistoricoDeAtendimentos';
 import ServicoInterno from './pages/DocSideServicoInterno';
 import './App.css'; // Ou o nome do seu arquivo CSS
-import ExamesMarcados from './pages/PacExamesMarcados';
+import ComponenteNovoExames from './pages/PacExamesMarcados';
 
 
 
@@ -1901,7 +1901,7 @@ function ConteudoDoApp() {
     />
     <Route path="/exames-marcados" element={localStorage.getItem('perfil_usuario') === 'medico' 
           ? <ServicoInterno /> 
-          : <ExamesMarcados />} />
+          : < ComponenteNovoExames  />} />
     
         </Routes>
       </main>

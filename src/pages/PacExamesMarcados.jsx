@@ -8,11 +8,13 @@ import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css'; 
 import { useState, useEffect } from 'react'; // Adicione também o useEffect se for usar
 // Configuração do Supabase (Ajuste as chaves se necessário)
+
+
 const supabaseUrl = 'https://oeuvczlnrkigikudxczz.supabase.co';
 const supabaseKey = 'sb_publishable_PGBklwDlyNTaArBwTw7HLw_kWM7c-zK'; 
 
 
-const ExamesMarcados = () => {
+const  ComponenteNovoExames  = () => {
   const [exames, setExames] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -151,4 +153,4 @@ const ExamesMarcados = () => {
   );
 };	
 
-export default ExamesMarcados
+export default ComponenteNovoExames ;
