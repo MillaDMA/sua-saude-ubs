@@ -9,7 +9,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
-
+import ServicoInterno from './DocSideServicoInterno';
 const AgendaDoMedico = () => (
   <div className="mt-5 text-center">
   {/* Título da Seção padronizado */}

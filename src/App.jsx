@@ -785,17 +785,22 @@ const PaginaPrincipal = () => {
 const Meusdados = () => {
   // Estados para armazenar os campos do formulário
   const [nome, setNome] = useState('');
-  const [cpf, setCpf] = useState('');
+  const [cpf, setCpf] = useState(''); // Exibirá o CPF para pacientes ou o CRM para médicos
   const [telefone, setTelefone] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [perfil, setPerfil] = useState(''); // Estado para sabermos o perfil atual no JSX
 
   useEffect(() => {
-    const buscarDadosPaciente = async () => {
+    const buscarDadosUsuario = async () => {
       try {
         const idUsuarioLogado = localStorage.getItem('id_usuario_logado');
+        const perfilUsuario = localStorage.getItem('perfil_usuario'); // Ex: 'medico' ou 'paciente'
+        setPerfil(perfilUsuario || 'paciente');
+        
         console.log("🔍 [FORM LOG] ID do localStorage:", idUsuarioLogado);
+        console.log("👤 [FORM LOG] Perfil do usuário:", perfilUsuario);
         
         if (!idUsuarioLogado) {
           setErro('Nenhum usuário logado encontrado. Faça o login novamente.');
@@ -803,45 +808,75 @@ const Meusdados = () => {
           return;
         }
 
-        // Busca todos os dados da tabela para evitar problemas com acentos na URL
-        const { data: todosPacientes, error: dbError } = await supabase
-          .from('Tabela pacientes')
+        // 1. Define qual tabela principal vai consultar baseado no perfil do usuário
+        const tabelaAlvo = perfilUsuario === 'medico' ? 'Tabela_medicos' : 'Tabela pacientes';
+        console.log(`📂 [FORM LOG] Buscando dados principais na tabela: ${tabelaAlvo}`);
+
+        const { data: todosRegistros, error: dbError } = await supabase
+          .from(tabelaAlvo)
           .select('*');
 
         if (dbError) {
           throw dbError;
         }
 
-        console.log("📊 [FORM LOG] Dados brutos vindos do banco:", todosPacientes);
+        console.log(`📊 [FORM LOG] Dados brutos vindos da ${tabelaAlvo}:`, todosRegistros);
 
-        if (todosPacientes && todosPacientes.length > 0) {
-          // Procura o paciente correspondente usando a mesma lógica que funcionou na principal
-          const pacienteEncontrado = todosPacientes.find((p) => {
-            const idBancoBruto = p['id_usuário'] || p['id_usuario'] || p.id_usuario;
+        if (todosRegistros && todosRegistros.length > 0) {
+          // 2. Procura o usuário correspondente pelo ID logado
+          const registroEncontrado = todosRegistros.find((r) => {
+            const idBancoBruto = r['id_usuario'] || r['id_usuário'] || r.id_usuario;
             return String(idBancoBruto).trim().toLowerCase() === String(idUsuarioLogado).trim().toLowerCase();
           });
 
-          if (pacienteEncontrado) {
-            console.log("🎉 [FORM LOG] Registro do paciente encontrado no banco:", pacienteEncontrado);
+          if (registroEncontrado) {
+            console.log("🎉 [FORM LOG] Registro principal localizado:", registroEncontrado);
 
-            // 1. Nome Completo (Já sabemos que no banco está 'Nome completo')
-            setNome(pacienteEncontrado['Nome completo'] || '');
+            // --- BUSCA SECUNDÁRIA: TABELA DE TELEFONE ---
+            let telefoneFormatado = 'Não encontrado';
+            try {
+              const { data: dadosTelefone, error: telError } = await supabase
+                .from('Tabela_telefone') // Nome idêntico ao do seu banco do Supabase
+                .select('*');
 
-            // 2. CPF (Testa variações comuns de escrita)
-            // Se no seu banco a coluna se chamar 'cpf_paciente' ou 'Nº CPF', mude aqui embaixo:
-            setCpf(pacienteEncontrado['CPF'] || pacienteEncontrado['cpf'] || pacienteEncontrado['Cpf'] || 'Não encontrado');
+              if (!telError && dadosTelefone) {
+                const telEncontrado = dadosTelefone.find(t => {
+                  const idTelBanco = t['id_usuario'] || t['id_usuário'] || t.id_usuario;
+                  return String(idTelBanco).trim().toLowerCase() === String(idUsuarioLogado).trim().toLowerCase();
+                });
 
-            // 3. Telefone (Testa variações comuns de escrita)
-            setTelefone(pacienteEncontrado['Telefone'] || pacienteEncontrado['telefone'] || pacienteEncontrado['Celular'] || 'Não encontrado');
+                if (telEncontrado) {
+                  const ddd = telEncontrado['ddd'] || '';
+                  const num = telEncontrado['telefone'] || '';
+                  telefoneFormatado = ddd ? `(${ddd}) ${num}` : num;
+                }
+              }
+            } catch (e) {
+              console.warn("⚠️ [FORM LOG] Erro ao buscar telefone na tabela secundária:", e);
+            }
+            // --------------------------------------------
 
-            // 4. Data de Nascimento (Testa variações comuns de escrita)
-            setDataNascimento(pacienteEncontrado['Data de Nascimento'] || pacienteEncontrado['data_nascimento'] || pacienteEncontrado['Nascimento'] || '');
+            // 3. Mapeamento de dados de acordo com o perfil
+            if (perfilUsuario === 'medico') {
+              setNome(registroEncontrado['Nome completo'] || '');
+              setCpf(registroEncontrado['CRM'] || 'CRM não informado');
+              setTelefone(telefoneFormatado);
+              setDataNascimento(''); 
+            } else {
+              setNome(registroEncontrado['Nome completo'] || '');
+              setCpf(registroEncontrado['CPF'] || registroEncontrado['cpf'] || registroEncontrado['Cpf'] || 'Não encontrado');
+              
+              const telOriginalPaciente = registroEncontrado['Telefone'] || registroEncontrado['telefone'] || registroEncontrado['Celular'];
+              setTelefone(telOriginalPaciente || telefoneFormatado);
+              
+              setDataNascimento(registroEncontrado['Data de Nascimento'] || registroEncontrado['data_nascimento'] || registroEncontrado['Nascimento'] || '');
+            }
             
           } else {
-            setErro('Seu perfil de paciente não foi localizado no banco de dados.');
+            setErro(`Seu perfil de ${perfilUsuario === 'medico' ? 'médico' : 'paciente'} não foi localizado no banco de dados.`);
           }
         } else {
-          setErro('Nenhum registro de paciente encontrado no servidor.');
+          setErro('Nenhum registro encontrado no servidor.');
         }
       } catch (err) {
         console.error('Erro ao carregar dados do formulário:', err);
@@ -851,7 +886,7 @@ const Meusdados = () => {
       }
     };
 
-    buscarDadosPaciente();
+    buscarDadosUsuario();
   }, []);
 
   if (carregando) {
@@ -897,10 +932,10 @@ const Meusdados = () => {
               />
             </div>
 
-            {/* CAMPO CPF */}
+            {/* CAMPO CPF / CRM (Muda o rótulo dinamicamente) */}
             <div className="mb-3">
               <label htmlFor="formCpf" className="form-label fw-bold text-secondary">
-                CPF
+                {perfil === 'medico' ? 'CRM' : 'CPF'}
               </label>
               <input
                 type="text"
@@ -911,39 +946,38 @@ const Meusdados = () => {
               />
             </div>
 
-           <div className="row g-3"> {/* Adicionado g-3 para um espaçamento mais elegante entre os campos */}
-  
-  {/* CAMPO TELEFONE */}
-  <div className="col-12 col-md-6 mb-3">
-    <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
-      Telefone / Celular
-    </label>
-    <input
-      type="text"
-      className="form-control bg-light"
-      id="formTelefone"
-      /* 🔑 Mantém o valor original, mas se ele for "Não encontrado", exibe o texto padrão amigável */
-      value={telefone || "Não encontrado"}
-      readOnly
-    />
-  </div>
+            <div className="row g-3">
+              {/* CAMPO TELEFONE */}
+              <div className={`col-12 ${perfil === 'medico' ? 'col-md-12' : 'col-md-6'} mb-3`}>
+                <label htmlFor="formTelefone" className="form-label fw-bold text-secondary">
+                  Telefone / Celular
+                </label>
+                <input
+                  type="text"
+                  className="form-control bg-light"
+                  id="formTelefone"
+                  value={telefone || "Não encontrado"}
+                  readOnly
+                />
+              </div>
 
-  {/* CAMPO DATA DE NASCIMENTO */}
-  <div className="col-12 col-md-6 mb-3">
-    <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
-      Data de Nascimento
-    </label>
-    <input
-      type="text"
-      className="form-control bg-light"
-      id="formDataNasc"
-      /* 🔑 Mantém a variável original viva, mas divide por '-' e inverte a ordem para exibir DD/MM/AAAA */
-      value={dataNascimento ? dataNascimento.split('-').reverse().join('/') : ""}
-      readOnly
-    />
-  </div>
-  
-</div>
+              {/* CAMPO DATA DE NASCIMENTO (Renderiza apenas se for Paciente) */}
+              {perfil !== 'medico' && (
+                <div className="col-12 col-md-6 mb-3">
+                  <label htmlFor="formDataNasc" className="form-label fw-bold text-secondary">
+                    Data de Nascimento
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control bg-light"
+                    id="formDataNasc"
+                    value={dataNascimento ? dataNascimento.split('-').reverse().join('/') : ""}
+                    readOnly
+                  />
+                </div>
+              )}
+            </div>
+
             <hr className="my-4" />
 
             {/* AVISO DO SISTEMA */}

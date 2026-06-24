@@ -14,7 +14,7 @@ const Treinamentos = () => (
   <div className="mt-4">
   {/* Título da Seção alinhado com o padrão anterior */}
   <h2 className="fw-bold text-secondary mb-1">Treinamentos</h2>
-  <p className="text-muted mb-4">Aqui ficam as informações sobre palestras e novas diretrizes.</p>
+  <p className="text-muted mb-4">Aqui ficam as informações sobre palestras e novas diretrizes .</p>
 
   {/* Card de Histórico no Mesmo Padrão Visual (Identidade Verde para Prontuário) */}
   <div className="card border-0 border-start border-success border-4 shadow-sm bg-white p-4">
