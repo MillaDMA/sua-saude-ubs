@@ -836,7 +836,7 @@ const Meusdados = () => {
             let telefoneFormatado = 'Não encontrado';
             try {
               const { data: dadosTelefone, error: telError } = await supabase
-                .from('Tabela_telefone') // Nome idêntico ao do seu banco do Supabase
+                .from('telefones') // Nome idêntico ao do seu banco do Supabase
                 .select('*');
 
               if (!telError && dadosTelefone) {
@@ -845,7 +845,7 @@ const Meusdados = () => {
                   return String(idTelBanco).trim().toLowerCase() === String(idUsuarioLogado).trim().toLowerCase();
                 });
 
-                if (telEncontrado) {
+                if (telEncontrado) {telefone
                   const ddd = telEncontrado['ddd'] || '';
                   const num = telEncontrado['telefone'] || '';
                   telefoneFormatado = ddd ? `(${ddd}) ${num}` : num;
